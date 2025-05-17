@@ -1,0 +1,38 @@
+[general]
+domain = custom.local
+seoUri = false
+title = false
+demo = false
+logo.auth = 
+logo.main = 
+
+[db]
+adapter = mysql
+host = localhost
+user = custom
+pass = custom
+name = custom
+
+[lang]
+front = ru
+admin = en
+gapi.key =
+gapi.off = false
+
+[view]
+scriptPath = application/views
+
+[upload]
+path = data/upload
+
+[ckeditor]
+key = 
+uploadPath = fck
+
+[rabbitmq]
+enabled = true
+maxwell = true
+host = localhost
+port = 5672
+user = guest
+pass = guest
