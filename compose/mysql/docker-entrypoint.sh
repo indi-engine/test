@@ -1,17 +1,23 @@
 #!/bin/bash
 set -eu -o pipefail
 
+# Make everything written to the stdout and stderr to be also written to a log file
+exec > >(tee -a /var/log/mysql/container.log) 2>&1
+
 # Path to a file to be created once init is done
 done=/var/lib/mysql/init.done
 
 # If init is not done
 if [[ ! -f "$done" ]]; then
 
-  # Install it
+  # Install certain tools
   apt-get update && apt-get install -y wget curl jq
 
   # Print which dump is going to be imported
   echo "MYSQL_DUMP is '$MYSQL_DUMP'";
+
+  # Load functions
+  source /usr/local/bin/functions.sh
 
   # Change dir
   cd /docker-entrypoint-initdb.d
@@ -24,6 +30,9 @@ if [[ ! -f "$done" ]]; then
 
   # Empty dumps counter
   empty=0
+
+  # Missing dumps counter
+  missing=0
 
   # Downloaded/copied dumps counter, to be used in filename prefix to preserve import order
   prefix=0
@@ -45,121 +54,39 @@ if [[ ! -f "$done" ]]; then
 
     # Else assume it's a local path pointing to some file inside
     # /docker-entrypoint-initdb.d/custom/ directory mapped as a volume
-    # from sql/ directory on the docker host machine
+    # from data/ directory on the docker host machine
     else
 
       # Shortcut
       local="custom/$dump"
 
-      # If that local dump file does NOT really exists in sql/ directory on host machine
-      # e.g does NOT exists in custom/ directory in mysql-container due to bind volume mapping
+      # If that local dump file does NOT really exists in data/ directory on host machine
+      # e.g does NOT exist in custom/ directory in mysql-container due to bind volume mapping
       if [[ ! -f "$local" ]]; then
 
-        # Get repo 'owner/name'
-        repo=$(sed -n 's#.*\/\([a-zA-Z0-9_\-]\+\/[a-zA-Z0-9_\-]\+\)\.git#\1#p' .gitconfig | sed -n '1p')
+        # If GH_TOKEN_CUSTOM variable is set - install GitHub CLI
+        if [[ ! -z "$GH_TOKEN_CUSTOM" ]]; then
+          ghcli_install
+          export GH_TOKEN="$GH_TOKEN_CUSTOM"
+        fi
 
-        # If GH_TOKEN variable is set - assume this dump file should be downloaded using GitHub CLI
-        if [[ ! -z "$GH_TOKEN" ]]; then
+        # Load list of available releases for current repo. If no releases - load ones for parent repo, if current repo
+        # was forked or generated. But anyway, $init_repo and $init_release variables will be set up to clarify where to
+        # download asset from, and it will refer to either current repo, or parent repo for cases when current repo
+        # has no releases so far, which might be true if it's a very first time of the instance getting up and running
+        # for the current repo
+        if (( ${#releaseQty[@]} == 0 )); then
+          load_releases "$(get_current_repo ".gitconfig")" "init"
+        fi
 
-          # Install GitHub CLI, if not yet installed
-          if ! command -v gh &>/dev/null; then
-            echo "Installing GitHub CLI"
-            ghgpg=/usr/share/keyrings/githubcli-archive-keyring.gpg
-            curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | dd of=$ghgpg && chmod go+r $ghgpg
-            echo "deb [arch=$(dpkg --print-architecture) signed-by=$ghgpg] https://cli.github.com/packages stable main" | tee /etc/apt/sources.list.d/github-cli.list > /dev/null
-            apt update && apt install gh -y
-          fi
-
-          # Print where we are
-          echo "Downloading $dump from '$repo'-repo assets on github using GitHub CLI"
-
-          # Download dump
-          gh release download latest -D custom -p "$dump" -R "$repo"
-
-        # Else if GH_TOKEN variable is not set - try to download dump file using GitHub API from the release
-        # assets of current repo or it's parent repo, but keep in mind this will work only if repo used to
-        # download the dump from - is a public repo, as otherwise GH_TOKEN is needed anyway
-        else
-
-          # Check if current repo exists on GitHub, so we are able to query GitHub API
-          if [[ $(curl -o /dev/null -s -w "%{http_code}" "https://api.github.com/repos/$repo") -eq 200 ]]; then
-
-            # Print we've found the current repo on GitHub
-            echo "Current repo $repo IS FOUND on GitHub"
-
-            # Prepare dump url
-            dump_url="https://github.com/$repo/releases/download/latest/$dump"
-
-            # If dump file exists in current repo's latest release assets
-            if [[ $(curl -o /dev/null -L -s -w "%{http_code}" -I "$dump_url") -eq 200 ]]; then
-
-              # Print where we are
-              echo "$dump IS FOUND in current repo latest release assets, downloading..."
-
-              # Download dump from there
-              curl -L -o "custom/$dump" "$dump_url"
-
-            # Else
-            else
-
-              # Print where we are
-              echo "$dump IS NOT FOUND in current repo latest release assets, checking parent repo..."
-
-              # Get current repo info in JSON format
-              info=$(curl -s "https://api.github.com/repos/$repo")
-
-              # Detect parent repo name and child type
-              if [[ $(echo $info | jq -r '.fork') == "true" ]]; then
-                parent_repo=$(echo $info | jq -r '.parent.full_name');
-                child_type="forked"
-              else
-                parent_repo=$(echo $info | jq -r '.template_repository.full_name');
-                child_type="generated"
-              fi
-
-              # If current repo is not forked or generated - print that
-              if [[ $parent_repo == "null" ]]; then
-                echo "Current repo $repo is not forked or generated, or is but from private repo, so can't download dump"
-
-              # Else - print that and try parent repo
-              else
-                echo "Current repo $repo is $child_type from parent repo $parent_repo"
-
-                # Check if parent repo exists and accessible for us on GitHub, so we are able to query GitHub API
-                if [[ $(curl -o /dev/null -s -w "%{http_code}" "https://api.github.com/repos/$parent_repo") -eq 200 ]]; then
-
-                  # Prepare dump url
-                  dump_url="https://github.com/$parent_repo/releases/download/latest/$dump"
-
-                  # If dump file exists in parent repo's latest release assets
-                  if [[ $(curl -o /dev/null -L -s -w "%{http_code}" -I "$dump_url") -eq 200 ]]; then
-
-                    # Print where we are
-                    echo "$dump IS FOUND in parent repo latest release assets, downloading..."
-
-                    # Download dump from there
-                    curl -L -o "custom/$dump" "$dump_url"
-
-                  # Else print where we are
-                  else
-                    echo "$dump IS NOT FOUND in parent repo latest release assets"
-                  fi
-
-                # Else print where we are
-                else
-                  echo "Parent repo $parent_repo not accessible, maybe due to it's a private one, so can't download dump from there"
-                fi
-              fi
-            fi
-
-          # Else print we're not able to query GitHub API
-          else
-            echo "Current repo $repo NOT EXISTS or IS PRIVATE on GitHub, so unable download dump"
-          fi
+        # Download it from github into data/ dir
+        if [[ ! -z "${init_repo:-}" ]]; then
+          echo "Asset '$dump' will be downloaded from '$init_repo:$init_release'"
+          gh_download "$init_repo" "$init_release" "$dump" "custom"
         fi
       fi
 
-      # If that local dump file really exists in sql/ directory on host machine
+      # If that local dump file really exists in data/ directory on host machine
       # e.g exists  in custom/ directory in mysql-container due to bind volume mapping
       if [ -f "$local" ]; then
 
@@ -185,23 +112,38 @@ if [[ ! -f "$done" ]]; then
       # Else if that local dump file does not really exist
       else
 
-        # Print error an exit
-        echo "SQL dump file '$dump' is not found!" && exit 1
+        # Increment missing dumps counter
+        missing=$((missing + 1))
       fi
     fi
   done
 
-  # If no dump(s) were given by MYSQL_DUMP-variable or all are empty
-  if [ $(( ${#dumpA[@]} - empty )) -eq 0 ]; then
+  # If no dump(s) were given by MYSQL_DUMP-variable or all are empty/missing
+  if [ $(( ${#dumpA[@]} - empty - missing )) -eq 0 ]; then
+
+    # Print info
+    echo "None of SQL dump file(s) not found, assuming blank Indi Engine instance setup"
 
     # Use system.sql
-    import+=("system.sql") && echo "The file(s) specified by \$MYSQL_DUMP does not exist or is empty, so using system.sql"
+    import+=("system.sql.gz")
   fi
 
-  # Download the SQL dump files
+  # Feed system token to GitHub CLI
+  GH_TOKEN="$GH_TOKEN_SYSTEM"
+
+  # Foreach file to be imported in addition to file(s) in MYSQL_DUMP
   for filename in "${import[@]}"; do
-    url="https://github.com/indi-engine/system/raw/master/sql/${filename}"
-    echo "Fetching from $url..." && wget "$url"
+
+    # Relative path of the downloaded file
+    local="custom/$filename"
+
+    # If file does not exist - download it
+    if [ ! -f "$local" ]; then
+      gh_download "indi-engine/system" "default" "${filename}" "custom"
+    fi
+
+    # Copy that file here for it to be imported, as files from subdirectories are ignored while import
+    cp "$local" "$filename" && echo "File '/docker-entrypoint-initdb.d/$local' copied to the level up"
   done
 
   # Spoof mysql user name inside maxwell.sql, if need

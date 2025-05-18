@@ -1,0 +1,59 @@
+#!/bin/bash
+
+# Clear the terminal log
+clear
+
+# If docker is installed - it means backup-command is being run on host
+if command -v docker >/dev/null 2>&1; then
+
+  # Get current dir name as it's used as prefix for all container names
+  dir=$(basename "$PWD")
+
+  # Wrapper container name
+  container="${dir//./}-wrapper-1"
+
+  # Execute backup-command within the container environment passing all arguments, if any
+  docker exec -it -e TERM="$TERM" $container bash "$(basename "${BASH_SOURCE[0]}")" $@
+
+# Else it means we're in the wrapper-container, so proceed with the backup
+else
+
+  # Setup GH_TOKEN
+  [[ -z $GH_TOKEN && ! -z $GH_TOKEN_CUSTOM ]] && export GH_TOKEN=${GH_TOKEN_CUSTOM:-}
+
+  # Load functions
+  source maintain/functions.sh
+
+  # If we're in detached HEAD state - it means we did an unconfirmed restore
+  # so make sure new backups won't be created until restore is confirmed or cancelled
+  if is_uncommitted_restore; then
+    echo "Your MUST commit or cancel the restore you've done before."
+    echo "Do this using 'source restore commit' or 'source restore cancel' commands."
+    echo "Creation of ANY new backups is prevented until then."
+    echo ""
+
+  # Else if we're NOT in detached HEAD state - do the backup
+  else
+
+    # If first argument is 'dump' or 'uploads'
+    if [[ "${1:-}" = "dump" || "${1:-}" = "uploads" ]]; then
+
+      # Print that we're going to update dump (or uploads) inside already existing backup
+      echo -e "\nBACKUP ONLY: ${1:-}\n"
+
+      # Ask user to select which backup should be patched with new dump or uploads
+      release_choices "to be patched" && echo -e "SELECTED VERSION: $(get_release_title $selected)\n"
+
+      # Backup uploads and dump
+      if [[ "${1:-}" = "dump" ]]; then
+        backup_dump "$selected"
+      else
+        backup_uploads "$selected"
+      fi
+
+    # Else do full custom backup
+    else
+      backup "${1:-custom}"
+    fi
+  fi
+fi
