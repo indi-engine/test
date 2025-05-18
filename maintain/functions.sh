@@ -1138,11 +1138,11 @@ release_choices() {
   # Split $list into an array of lines
   IFS=$'\n' read -r -d '' -a lines <<< "$list"
 
-  # Get and print header, with removing it out of the lines array
-  local header=${lines[0]} && unset 'lines[0]' && echo " ?  $header"
-
   # Get index of 'TAG NAME' within the header line
-  header=$(echo "$header" | sed -e 's/\x1b\[[0-9;]*m//g') && index=${header%%"TAG NAME"*} && index=${#index}
+  local header=$(echo -e "${lines[0]}" | cat -v | sed -E 's~\^(\[[^m]+?m|M)~~g') && index=${header%%"TAG NAME"*} && index=${#index}
+
+  # Get and print header, with removing it out of the lines array
+  echo -e " ?  ${lines[0]}" | perl -pe 's/\e\[[0-9;?]*[A-Za-ln-zA-Z]//g' | sed -E 's~\x1b][0-9]+;\?~~g' && unset 'lines[0]'
 
   # Re-index lines array
   lines=("${lines[@]}")
@@ -1150,7 +1150,7 @@ release_choices() {
   # Prepare unsorted releases-array of [tag => name] pairs from raw $lines
   declare -Ag releases=()
   for idx in "${!lines[@]}"; do
-    tag=$(echo -e "${lines[$idx]}" | sed -e 's/\x1b\[[0-9;]*m//g' -e 's/·/-/g')
+    tag=$(echo -e "${lines[$idx]}" | cat -v | sed -E 's~\^(\[[^m]+?m|M)~~g' | sed -E 's/M-BM-7/-/g')
     tag=$(echo "${tag:$index}") && tag="${tag%% *}"
     releases[$tag]=${lines[$idx]}
   done
