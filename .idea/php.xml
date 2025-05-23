@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="PhpIncludePathManager">
+    <include_path>
+      <path value="$PROJECT_DIR$/custom/vendor/ramsey/uuid" />
+      <path value="$PROJECT_DIR$/custom/vendor/ramsey/collection" />
+      <path value="$PROJECT_DIR$/custom/vendor/composer" />
+      <path value="$PROJECT_DIR$/custom/vendor/psr/http-client" />
+      <path value="$PROJECT_DIR$/custom/vendor/psr/cache" />
+      <path value="$PROJECT_DIR$/custom/vendor/psr/simple-cache" />
+      <path value="$PROJECT_DIR$/custom/vendor/psr/log" />
+      <path value="$PROJECT_DIR$/custom/vendor/psr/http-message" />
+      <path value="$PROJECT_DIR$/custom/vendor/psr/http-factory" />
+      <path value="$PROJECT_DIR$/custom/vendor/rize/uri-template" />
+      <path value="$PROJECT_DIR$/custom/vendor/mpdf/psr-log-aware-trait" />
+      <path value="$PROJECT_DIR$/custom/vendor/mpdf/mpdf" />
+      <path value="$PROJECT_DIR$/custom/vendor/grpc/grpc" />
+      <path value="$PROJECT_DIR$/custom/vendor/google/cloud-translate" />
+      <path value="$PROJECT_DIR$/custom/vendor/google/cloud-core" />
+      <path value="$PROJECT_DIR$/custom/vendor/google/auth" />
+      <path value="$PROJECT_DIR$/custom/vendor/ezyang/htmlpurifier" />
+      <path value="$PROJECT_DIR$/custom/vendor/google/longrunning" />
+      <path value="$PROJECT_DIR$/custom/vendor/google/grpc-gcp" />
+      <path value="$PROJECT_DIR$/custom/vendor/google/gax" />
+      <path value="$PROJECT_DIR$/custom/vendor/google/common-protos" />
+      <path value="$PROJECT_DIR$/custom/vendor/myclabs/deep-copy" />
+      <path value="$PROJECT_DIR$/custom/vendor/monolog/monolog" />
+      <path value="$PROJECT_DIR$/custom/vendor/laminas/laminas-escaper" />
+      <path value="$PROJECT_DIR$/custom/vendor/brick/math" />
+      <path value="$PROJECT_DIR$/custom/vendor/google/protobuf" />
+      <path value="$PROJECT_DIR$/custom/vendor/zendesk/maxwell" />
+      <path value="$PROJECT_DIR$/custom/vendor/symfony/deprecation-contracts" />
+      <path value="$PROJECT_DIR$/custom/vendor/maennchen/zipstream-php" />
+      <path value="$PROJECT_DIR$/custom/vendor/stomp-js/stompjs" />
+      <path value="$PROJECT_DIR$/custom/vendor/setasign/fpdi" />
+      <path value="$PROJECT_DIR$/custom/vendor/firebase/php-jwt" />
+      <path value="$PROJECT_DIR$/custom/vendor/phpmailer/phpmailer" />
+      <path value="$PROJECT_DIR$/custom/vendor/paragonie/random_compat" />
+      <path value="$PROJECT_DIR$/custom/vendor/markbaker/matrix" />
+      <path value="$PROJECT_DIR$/custom/vendor/markbaker/complex" />
+      <path value="$PROJECT_DIR$/custom/vendor/paragonie/constant_time_encoding" />
+      <path value="$PROJECT_DIR$/custom/vendor/ralouphie/getallheaders" />
+      <path value="$PROJECT_DIR$/custom/vendor/phpseclib/phpseclib" />
+      <path value="$PROJECT_DIR$/custom/vendor/phpoffice/phpword" />
+      <path value="$PROJECT_DIR$/custom/vendor/phpoffice/phpspreadsheet" />
+      <path value="$PROJECT_DIR$/custom/vendor/indi-engine/ckeditor" />
+      <path value="$PROJECT_DIR$/custom/vendor/guzzlehttp/psr7" />
+      <path value="$PROJECT_DIR$/custom/vendor/guzzlehttp/promises" />
+      <path value="$PROJECT_DIR$/custom/vendor/guzzlehttp/guzzle" />
+      <path value="$PROJECT_DIR$/custom/vendor/mpdf/psr-http-message-shim" />
+      <path value="$PROJECT_DIR$/custom/vendor/indi-engine/system" />
+      <path value="$PROJECT_DIR$/custom/vendor/indi-engine/public" />
+      <path value="$PROJECT_DIR$/custom/vendor/indi-engine/client" />
+      <path value="$PROJECT_DIR$/custom/vendor/indi-engine/ckfinder" />
+      <path value="$PROJECT_DIR$/custom/vendor/php-amqplib/php-amqplib" />
+    </include_path>
+  </component>
+</project>
