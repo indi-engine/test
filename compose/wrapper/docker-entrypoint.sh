@@ -82,6 +82,7 @@ source maintain/functions.sh
 # Setup crontab
 export TERM=xterm && env | grep -E "MYSQL|GIT|GH|DOC|EMAIL|TERM|BACKUPS|APP_ENV" >> /etc/environment
 sed "s~\$DOC~$DOC~" 'compose/wrapper/crontab' | crontab -
+service cron start
 
 # If GH_TOKEN is set it means we'll work via GitHub CLI, so set current repo as default one for that tool
 if [[ -n $GH_TOKEN ]]; then
@@ -97,5 +98,5 @@ init_uploads_if_need
 # so that any further deployments won't rely on parent repo releases anymore
 make_very_first_release_if_need
 
-# Start cron in foreground to keep container running
-cron -f
+# Run HTTP api server
+FLASK_APP=compose/wrapper/api.py flask run --host=0.0.0.0 --port=80 --reload

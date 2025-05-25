@@ -5,6 +5,9 @@
 # Uploads
 custom/data/upload/
 
+# Python
+compose/wrapper/__pycache__
+
 # Other files to me ignored
 custom/**/*.gz
 custom/**/*.mo

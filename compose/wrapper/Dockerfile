@@ -1,7 +1,7 @@
 FROM debian:12-slim
 
 ## <Misc> ##
-RUN apt-get update && apt-get install -fy mc curl wget lsb-release cron bsdextrautils zip unzip jq
+RUN apt-get update && apt-get install -fy mc curl wget lsb-release cron bsdextrautils zip unzip jq python3-flask python3-pika python3-pexpect
 ## </Misc> ##
 
 ## <GitHub CLI>

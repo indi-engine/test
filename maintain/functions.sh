@@ -171,7 +171,7 @@ read_choice_custom() {
 }
 
 # Ask user to make a choice based on choices-array, which must be defined before calling this function
-# Once user do some choice, it's 0-based index is written to the choice-variable which can be evaluated
+# Once user do some choice, it's 0-based index is written to the choice_idx-variable which can be evaluated
 # right after this function is completed
 read_choice() {
 
@@ -1126,14 +1126,14 @@ restore_source() {
 # and set up selected-variable containing selected release's tag
 release_choices() {
 
+  # Arguments
+  local to_be_done=${1:-"to be restored"}
+  local auto_choose_most_recent=${2:-0}
+
   # Load releases list
   echo -n "Loading list of backup versions available on github..."
   local list=$(script -q -c "gh release list" /dev/null)
   echo " Done"
-
-  # Print instruction on how to use keyboard keys
-  echo "Please select the version you want ${1:-"to be restored"}"
-  echo -e "Use the ↑ and ↓ keys to navigate and press Enter to select or Ctrl+C to cancel\n"
 
   # Split $list into an array of lines
   IFS=$'\n' read -r -d '' -a lines <<< "$list"
@@ -1142,7 +1142,7 @@ release_choices() {
   local header=$(echo -e "${lines[0]}" | cat -v | sed -E 's~\^(\[[^m]+?m|M)~~g') && index=${header%%"TAG NAME"*} && index=${#index}
 
   # Get and print header, with removing it out of the lines array
-  echo -e " ?  ${lines[0]}" | perl -pe 's/\e\[[0-9;?]*[A-Za-ln-zA-Z]//g' | sed -E 's~\x1b][0-9]+;\?~~g' && unset 'lines[0]'
+  header=$(echo -e " ?  ${lines[0]}" | perl -pe 's/\e\[[0-9;?]*[A-Za-ln-zA-Z]//g' | sed -E 's~\x1b][0-9]+;\?~~g'); unset 'lines[0]'
 
   # Re-index lines array
   lines=("${lines[@]}")
@@ -1163,8 +1163,23 @@ release_choices() {
   # Prepare choices in the right order
   choices=() && for tag in "${sorted_tags[@]}"; do choices+=("${releases["$tag"]}"); done
 
-  # Ask user to choose and set choice-variable once done
-  read_choice $default_release_idx
+  # If the most recent backup should be auto-patched - we don't ask user to choose
+  if [[ $auto_choose_most_recent = 1 ]]; then
+
+    # Get text
+    choice_idx=${default_release_idx}
+    choice_txt=${choices[$default_release_idx]}
+
+  # Else
+  else
+
+    # Print instruction on how to use keyboard keys
+    echo "Please select the version you want $to_be_done"
+    echo -e "Use the ↑ and ↓ keys to navigate and press Enter to select or Ctrl+C to cancel\n"
+
+    # Ask user to choose and set choice-variable once done
+    echo "$header" && read_choice $default_release_idx
+  fi
 
   # Parse and print the tag of selected backup
   selected=$(echo -e "$choice_txt" | sed -e 's/\x1b\[[0-9;]*m//g' -e 's/·/-/g')
@@ -1226,6 +1241,9 @@ prepare_backup_tag() {
 
   # If it's a rotated backup
   if (( is_rotated_backup )); then
+
+    # Print a newline
+    echo ""
 
     # Iterate over each expected backup starting from the oldest one and up to the most recent one
     for ((backup_idx=$((rotated_qty-1)); backup_idx>=0; backup_idx--)); do
