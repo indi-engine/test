@@ -747,7 +747,7 @@ move_choice() {
     set_string_at "•" "$col" "$((qty-now))"
 
     # If $ENV_NAME variable is set - it means we're choosing a value for some .env-variable
-    if [[ ! -z $ENV_NAME ]]; then
+    if [[ ! -z ${ENV_NAME:-} ]]; then
 
       # Prepare the line to be used for re-renderiing the existing line where 'SOME_NAME=SOME_VALUE' is printed
       line="$ENV_NAME="$(printf "%-*s" $(longest_choice_length) "${choices[$now]}")
