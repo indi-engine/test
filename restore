@@ -99,6 +99,7 @@ else
   if is_uncommitted_restore; then
 
     # Print the restored version
+    echo ""
     echo -n "RESTORED VERSION: " && echo $(git notes show) && echo ""
 
     # Print the clarification
@@ -115,6 +116,7 @@ else
 
   # Else if we've cancelled restore - print corresponding message
   elif [[ "${1:-}" = "cancel" ]]; then
+    echo ""
     echo "Your $APP_ENV instance is now reverted to the original version,"
     echo "which was active BEFORE you've entered in an 'uncommitted restore' state,"
     echo "so your instance is not in that state anymore and this means that"
