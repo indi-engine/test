@@ -610,31 +610,26 @@ upload_asset() {
   echo "$msg Done"
 }
 
-# Download database dump from github, extract from gz-archive and import into mysql
+# Restore database state from the dump.sql.gz of a given release tag
+# If release tag is not given - existing data/dump.sql.gz file will be used
 restore_dump() {
 
   # Arguments
-  release=$1
-  
-  # Download database dump from github
-  download_dump $release
-  
+  local release="${1:-}"
+
+  # Name of the backup file
+  local file="dump.sql.gz"
+
+  # If $release is given - download the backup file, overwriting the existing one, if any
+  if [[ -n "$release" ]]; then
+    local msg="Downloading $file for selected version into data/ dir..." && echo $msg
+    gh release download "$release" -D data -p "$file" --clobber
+    clear_last_lines 1
+    echo "$msg Done"
+  fi
+
   # Empty mysql data-dir and restart mysql to re-init using downloaded dump
   import_dump
-}
-
-# Download database dump from github
-download_dump() {
-
-  # Arguments
-  release=$1
-
-  # Download the dump file, overwriting existing file, if any
-  msg="Downloading $MYSQL_DUMP for selected version into data/ dir..."
-  echo $msg
-  gh release download $release -D data -p "$MYSQL_DUMP" --clobber
-  clear_last_lines 1
-  echo "$msg Done"
 }
 
 # Shutdown mysql, empty data-dir and wait for mysql to re-init using pre-downloaded dump
@@ -1245,7 +1240,7 @@ cancel_restore_source() {
 }
 
 # Cancel uploads restore, i.e. revert uploads to the state which was before restore
-cancel_restore_uploads() {
+cancel_restore_uploads_and_dump() {
 
   # Move uploads.zip and dump.sql.gz files from data/before/ to data/
   # for those to be further picked by restore_uploads() call and mysql re-init
@@ -1259,6 +1254,12 @@ cancel_restore_uploads() {
   # to skip the downloading uploads.zip file from github, so that the local uploads.zip file
   # we've moved into data/ dir from data/before/ dir - will be used instead
   restore_uploads
+
+  # Revert database to the state before restore
+  # We call this function here with no 1st arg (which normally is expected to be a release tag)
+  # to skip the downloading dump.sql.gz file from github, so that the local dump.sql.gz file
+  # we've moved into data/ dir from data/before/ dir - will be used instead
+  restore_dump
 }
 
 # Prepare $tag variable containing the right tag name for the new backup and do a rotation step if need

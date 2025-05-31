@@ -39,7 +39,7 @@ else
       # data/ from data/before/ and then will be picked by mysql re-init
       if [[ "${1:-}" = "cancel" ]]; then
         cancel_restore_source
-        cancel_restore_uploads
+        cancel_restore_uploads_and_dump
 
       # Else if first argument is 'commit' - backup the original version
       # and make restored version to be the new latest
