@@ -15,8 +15,11 @@ if command -v docker >/dev/null 2>&1; then
 # Else it means we're in the wrapper-container, so proceed with the restore
 else
 
+  # Make sure execution stops on any error
+  set -eu -o pipefail
+
   # Setup GH_TOKEN
-  [[ -z $GH_TOKEN && ! -z $GH_TOKEN_CUSTOM ]] && export GH_TOKEN=${GH_TOKEN_CUSTOM:-}
+  [[ -z ${GH_TOKEN:-} && ! -z $GH_TOKEN_CUSTOM ]] && export GH_TOKEN=${GH_TOKEN_CUSTOM:-}
 
   # If first arg is 'cancel' or 'commit'
   if [[ "${1:-}" = "cancel" || "${1:-}" = "commit" ]]; then

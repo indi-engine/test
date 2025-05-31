@@ -176,7 +176,7 @@ read_choice_custom() {
 read_choice() {
 
   # Variables
-  local indent="" && [[ ! -z $ENV_NAME ]] && indent="  "
+  local indent="" && [[ ! -z ${ENV_NAME:-} ]] && indent="  "
   local now_choice=${1:-0}
   local was_choice=0
   local key="none"
@@ -1059,7 +1059,7 @@ unzip_file() {
   if [[ -n $owner ]]; then
     echo -n "Making that dir writable for Indi Engine..."
     chown -R "$owner" "$dest"
-    echo -e " Done\n"
+    echo -e " Done"
   fi
 }
 
