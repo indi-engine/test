@@ -18,6 +18,13 @@ else
   # Make sure execution stops on any error
   set -eu -o pipefail
 
+  # Set up restore scenario based on 1st arg
+  if [[ "${1:-}" = "dump" || "${1:-}" = "uploads" || "${1:-}" = "cancel" || "${1:-}" = "confirm" ]]; then
+    scenario="${1:-}"
+  else
+    scenario="full"
+  fi
+
   # Setup GH_TOKEN
   [[ -z ${GH_TOKEN:-} && ! -z $GH_TOKEN_CUSTOM ]] && export GH_TOKEN=${GH_TOKEN_CUSTOM:-}
 
@@ -53,7 +60,7 @@ else
   else
 
     # If first argument is 'dump' or 'uploads'
-    if [[ "${1:-}" = "dump" || "${1:-}" = "uploads" ]]; then
+    if [[ "$scenario" = "dump" || "$scenario" = "uploads" ]]; then
       echo -e "\nRESTORE ONLY: ${1:-}\n"
     fi
 
@@ -61,7 +68,7 @@ else
     release_choices && echo -e "SELECTED VERSION: $(get_release_title $selected)\n"
 
     # If first argument is NOT given
-    if [[ "${1:-}" = "" ]]; then
+    if [[ "$scenario" = "full" ]]; then
 
       # If we're going to enter into an 'uncommitted restore' state then
       # do a preliminary local backup of current state so that we'll be
@@ -74,13 +81,16 @@ else
 
     # If first argument is NOT given or is given as "uploads"
     # - restore uploads
-    if [[ "${1:-}" = "" || "${1:-}" = "uploads" ]]; then
+    if [[ "$scenario" = "full" || "$scenario" = "uploads" ]]; then
       restore_uploads "$selected"
     fi
 
+    # If $scenario is full - print a new line to visually separate uploads and dump restore steps
+    [[ "$scenario" = "full" ]] && echo ""
+
     # If first argument is NOT given or is given as "dump"
     # - download dump to be further picked during mysql re-init
-    if [[ "${1:-}" = "" || "${1:-}" = "dump" ]]; then
+    if [[ "$scenario" = "full" || "$scenario" = "dump" ]]; then
       restore_dump "$selected"
     fi
   fi
