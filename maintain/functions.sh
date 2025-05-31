@@ -1255,6 +1255,9 @@ cancel_restore_uploads_and_dump() {
   # we've moved into data/ dir from data/before/ dir - will be used instead
   restore_uploads
 
+  # Separate with new line
+  echo ""
+
   # Revert database to the state before restore
   # We call this function here with no 1st arg (which normally is expected to be a release tag)
   # to skip the downloading dump.sql.gz file from github, so that the local dump.sql.gz file
