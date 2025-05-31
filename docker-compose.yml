@@ -60,7 +60,7 @@ services:
       --slow-query-log-file=/var/log/mysql/slow.log
     environment:
       TZ: ${TIMEZONE}
-      MYSQL_RANDOM_ROOT_PASSWORD: '1'
+      MYSQL_ROOT_PASSWORD: ${MYSQL_PASSWORD:-custom}
       MYSQL_USER: ${MYSQL_USER:-custom}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD:-custom}
       MYSQL_DATABASE: ${MYSQL_DATABASE:-custom}

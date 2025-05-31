@@ -6,76 +6,13 @@ clear
 # Load functions
 source maintain/functions.sh
 
-# If docker is installed - it means backup-command is being run on host
+# If docker is installed - it means restore-command is being run on host
 if command -v docker >/dev/null 2>&1; then
 
-  # Get current dir name as it's used as prefix for all container names
-  dir=$(basename "$PWD")
+  # Execute restore-command within the container environment passing all arguments, if any
+  docker compose exec -it -e TERM="$TERM" wrapper bash "$(basename "${BASH_SOURCE[0]}")" $@
 
-  # Wrapper container name
-  wrapper="${dir//./}-wrapper-1"
-
-  # Get vars from .env
-  MYSQL_DUMP=$(grep "^MYSQL_DUMP=" .env | cut -d '=' -f 2-)
-  APP_ENV=$(grep "^APP_ENV=" .env | cut -d '=' -f 2-)
-  GH_TOKEN=$(grep "^GH_TOKEN=" .env | cut -d '=' -f 2-)
-
-  # Get dump timestamp before restore command
-  dump_was_timestamp=$(stat -c %y "data/$MYSQL_DUMP")
-
-  # Execute backup-command within the container environment passing all arguments, if any
-  docker exec -it -e TERM="$TERM" $wrapper bash "$(basename "${BASH_SOURCE[0]}")" $@
-
-  # Get dump timestamp after restore command
-  dump_now_timestamp=$(stat -c %y "data/$MYSQL_DUMP")
-
-  # If dump file modification timestamp was changed - it means it was re-downloaded from github
-  # so the restore command was NOT interrupted (e.g. with Ctrl+C), so we can proceed further to
-  # completely re-initialize mysql with that dump completely from scratch
-  if [[ "$dump_was_timestamp" != "$dump_now_timestamp" ]]; then
-
-    # Remove containers that are using mysql_server_data volume and the volume itself
-    echo -n "Removing old MySQL instance..."
-    docker rm -f "$wrapper" "${dir//./}-mysql-1" > /dev/null
-    docker volume rm "${dir//./}_mysql_server_data" > /dev/null
-    echo " Done"
-
-    # Start wrapper container (with preliminary auto-start of mysql-container, as it's a dependency for wrapper)
-    msg="Importing $MYSQL_DUMP into a newly created MySQL instance..."
-    echo -e "$msg\n"
-    docker compose up -d wrapper
-    clear_last_lines 6
-    echo -e "$msg Done\n"
-
-    # If we're in an uncommitted restore state
-    if is_uncommitted_restore; then
-
-      # Print the restored version
-      echo -n "RESTORED VERSION: " && echo $(git notes show) && echo ""
-
-      # Print the clarification
-      echo "Your development instance is now in an 'uncommitted restore' state. Now you can"
-      echo "look around and decide whether the version you've just restored - is REALLY the"
-      echo "right one for keeping this instance at and for switching other instances to, if"
-      echo "any, once any updated. If so - run 'source restore commit' command. Otherwise,"
-      echo "you can either restore backup for another version via 'source restore' command,"
-      echo "or you can cancel the restore via 'source restore cancel' command."
-      echo ""
-      echo "IMPORTANT: Creation of ANY new backups for this instance - is prevented until"
-      echo "           your current restore is committed or cancelled."
-      echo ""
-
-    # Else if we've cancelled restore - print corresponding message
-    elif [[ "${1:-}" = "cancel" ]]; then
-      echo "Your $APP_ENV instance is now reverted to the original version,"
-      echo "which was active BEFORE you've entered in an 'uncommitted restore' state,"
-      echo "so your instance is not in that state anymore and this means that"
-      echo "backups creation is not prevented anymore as well."
-      echo ""
-    fi
-  fi
-
-# Else it means we're in the wrapper-container, so proceed with the backup
+# Else it means we're in the wrapper-container, so proceed with the restore
 else
 
   # Setup GH_TOKEN
@@ -141,8 +78,35 @@ else
     # If first argument is NOT given or is given as "dump"
     # - download dump to be further picked during mysql re-init
     if [[ "${1:-}" = "" || "${1:-}" = "dump" ]]; then
-      download_dump "$selected"
+      restore_dump "$selected"
     fi
+  fi
+
+  # If we're in an uncommitted restore state
+  if is_uncommitted_restore; then
+
+    # Print the restored version
+    echo -n "RESTORED VERSION: " && echo $(git notes show) && echo ""
+
+    # Print the clarification
+    echo "Your development instance is now in an 'uncommitted restore' state. Now you can"
+    echo "look around and decide whether the version you've just restored - is REALLY the"
+    echo "right one for keeping this instance at and for switching other instances to, if"
+    echo "any, once any updated. If so - run 'source restore commit' command. Otherwise,"
+    echo "you can either restore backup for another version via 'source restore' command,"
+    echo "or you can cancel the restore via 'source restore cancel' command."
+    echo ""
+    echo "IMPORTANT: Creation of ANY new backups for this instance - is prevented until"
+    echo "           your current restore is committed or cancelled."
+    echo ""
+
+  # Else if we've cancelled restore - print corresponding message
+  elif [[ "${1:-}" = "cancel" ]]; then
+    echo "Your $APP_ENV instance is now reverted to the original version,"
+    echo "which was active BEFORE you've entered in an 'uncommitted restore' state,"
+    echo "so your instance is not in that state anymore and this means that"
+    echo "backups creation is not prevented anymore as well."
+    echo ""
   fi
 fi
 
