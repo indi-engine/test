@@ -70,7 +70,9 @@ else
 
     # If first argument is 'dump' or 'uploads'
     if [[ "$scenario" = "dump" || "$scenario" = "uploads" ]]; then
-      echo -e "\nRESTORE ONLY: ${1:-}\n"
+      if [[ -z "$tag" ]]; then
+        echo -e "\nRESTORE ONLY: ${1:-}\n"
+      fi
     fi
 
     # Load backups list and ask user to select one unless $tag is not empty
@@ -92,18 +94,23 @@ else
     fi
 
     # If first argument is NOT given or is given as "uploads"
-    # - restore uploads
     if [[ "$scenario" = "full" || "$scenario" = "uploads" ]]; then
+
+      # Restore uploads
       restore_uploads "$selected"
+
+      # If $tag is given - print a new line
+      [[ ! -z "$tag" ]] && echo ""
     fi
 
-    # If $scenario is full - print a new line to visually separate uploads and dump restore steps
-    [[ "$scenario" = "full" ]] && echo ""
-
     # If first argument is NOT given or is given as "dump"
-    # - download dump to be further picked during mysql re-init
     if [[ "$scenario" = "full" || "$scenario" = "dump" ]]; then
+
+      # Download dump, stop MySQL, purge MySQL data, and wait for mysql re-init
       restore_dump "$selected"
+
+      # If $tag is given - print a new line
+      [[ ! -z "$tag" ]] && echo ""
     fi
   fi
 
