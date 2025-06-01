@@ -5,31 +5,20 @@ import subprocess, pika, json, pexpect
 # Instantiate app
 app = Flask(__name__)
 
-# Add backup endpoint
-@app.route('/backup', methods=['POST'])
-def backup():
-
+# Spawn bash script and stream stdout/stderr to a websocket channel
+def bash_stream(
+    command,
+    data
+):
     # Connect to RabbitMQ
     nn = pika.BlockingConnection(pika.ConnectionParameters('rabbitmq'))
     mq = nn.channel()
-
-    # Get json data
-    data = request.get_json(silent=True) or {}
-
-    # Prepare queue name
     qn = 'indi-engine.custom.opentab--' + data.get('to')
 
-    # Basic backup command
-    cmd = 'source backup'
-
-    # If scenario is to patch the most recent backup with current database (or current uploads) - add to command
-    if data.get('scenario') == 'dump' or data.get('scenario') == 'uploads':
-        cmd += ' ' + data.get('scenario') + ' --recent'
-
     # Start bash script in a pseudo-terminal
-    child = pexpect.spawn('bash -c "' + cmd + '"', encoding='utf-8')
+    child = pexpect.spawn('bash -c "' + command + '"', encoding='utf-8')
 
-    # Open xterm in Indi Engine UI
+    # Send websocket message to open xterm in Indi Engine UI
     mq.basic_publish(
         exchange = '',
         routing_key = qn,
@@ -81,8 +70,25 @@ def backup():
     # Clone connection
     nn.close()
 
-    #
-    return 'Triggered', 200
+    # Return
+    return 'Executed', 200
+
+# Add backup endpoint
+@app.route('/backup', methods=['POST'])
+def backup():
+
+    # Get json data
+    data = request.get_json(silent=True) or {}
+
+    # Basic backup command
+    command = 'source backup'
+
+    # If scenario is to patch the most recent backup with current database (or current uploads) - add to command
+    if data.get('scenario') in ['dump', 'uploads']:
+        command += f" {data.get('scenario')} --recent"
+
+    # Run bash script and stream stdout/stderr
+    return bash_stream(command, data)
 
 # Get backups list
 @app.route('/backups', methods=['GET'])
@@ -113,73 +119,15 @@ def restore():
     # Get json data
     data = request.get_json(silent=True) or {}
 
-    # Prepare queue name
-    qn = 'indi-engine.custom.opentab--' + data.get('to')
-
     # Basic restore command
-    cmd = 'source restore'
+    command = 'source restore'
 
     # If scenario is to restore just the database (or uploads) - add to command
-    if data.get('scenario') == 'dump' or data.get('scenario') == 'uploads':
-        cmd += ' ' + data.get('scenario')
+    if data.get('scenario') in ['dump', 'uploads']:
+        command += f" {data.get('scenario')}"
 
     # Add tag name of a release/backup to be restored
-    cmd += ' ' + data.get('tagName')
+    command += f" {data.get('tagName')}"
 
-    # Start bash script in a pseudo-terminal
-    child = pexpect.spawn('bash -c "' + cmd + '"', encoding='utf-8')
-
-    # Open xterm in Indi Engine UI
-    mq.basic_publish(
-        exchange = '',
-        routing_key = qn,
-        body = json.dumps(data)
-    )
-
-    # While script is running
-    while True:
-        try:
-
-            # Read as many bytes as written by script
-            bytes = child.read_nonblocking(size=1024, timeout=100)
-
-            # If script has finished and no bytes were read
-            # (maybe just before the PTY fully closed),
-            # but EOF was not raised yet - break the loop
-            if not bytes and not child.isalive():
-                break
-
-            # Else push to websocket
-            mq.basic_publish(
-                exchange = '',
-                routing_key = qn,
-                body = json.dumps({
-                    'type': data.get('type'),
-                    'id': data.get('id'),
-                    'bytes': bytes
-                })
-            )
-
-        # If pexpect is SURE the script is done and the PTY is closed - break the loop
-        except pexpect.EOF:
-            break
-
-    # Close script process
-    child.close()
-
-    # Indicate all done
-    mq.basic_publish(
-        exchange = '',
-        routing_key = qn,
-        body = json.dumps({
-            'type': data.get('type'),
-            'id': data.get('id'),
-            'bytes': 'All done.'
-        })
-    )
-
-    # Clone connection
-    nn.close()
-
-    #
-    return 'Triggered', 200
+    # Run bash script and stream stdout/stderr
+    return bash_stream(command, data)

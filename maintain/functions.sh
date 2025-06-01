@@ -248,7 +248,9 @@ check_rotated_backup() {
   (( is_rotated_backup )) && rotated_qty=${qty["$rotation_period_name"]} && (( rotated_qty > 0 )) || rotated_qty=0
 
   # If it's a rotated backup having 0 as rotation qty - this means backups of such a period are disabled
-  (( is_rotated_backup )) && (( rotated_qty == 0 )) && exit 0
+  if (( is_rotated_backup && rotated_qty == 0 )); then
+    exit 0
+  fi
 }
 
 # Prepare array of [tag name => backup name] pairs
@@ -256,7 +258,7 @@ load_releases() {
 
   # Arguments
   local repo=$1
-  local step=$2
+  local step=${2:-}
   local list
 
   # Declare array.
