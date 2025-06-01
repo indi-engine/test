@@ -6,23 +6,20 @@ clear
 # If docker is installed - it means backup-command is being run on host
 if command -v docker >/dev/null 2>&1; then
 
-  # Get current dir name as it's used as prefix for all container names
-  dir=$(basename "$PWD")
-
-  # Wrapper container name
-  container="${dir//./}-wrapper-1"
-
   # Execute backup-command within the container environment passing all arguments, if any
-  docker exec -it -e TERM="$TERM" $container bash "$(basename "${BASH_SOURCE[0]}")" $@
+  docker compose exec -it -e TERM="$TERM" wrapper bash "$(basename "${BASH_SOURCE[0]}")" $@
 
 # Else it means we're in the wrapper-container, so proceed with the backup
 else
 
-  # Setup GH_TOKEN
-  [[ -z $GH_TOKEN && ! -z $GH_TOKEN_CUSTOM ]] && export GH_TOKEN=${GH_TOKEN_CUSTOM:-}
+  # Make sure execution stops on any error
+  set -eu -o pipefail
 
   # Load functions
   source maintain/functions.sh
+
+  # Setup GH_TOKEN
+  [[ -z ${GH_TOKEN:-} && ! -z $GH_TOKEN_CUSTOM ]] && export GH_TOKEN=${GH_TOKEN_CUSTOM:-}
 
   # If we're in detached HEAD state - it means we did an unconfirmed restore
   # so make sure new backups won't be created until restore is confirmed or cancelled

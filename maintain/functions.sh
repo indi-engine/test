@@ -194,8 +194,8 @@ read_choice() {
 
     # Capture user input (up/down/enter keys)
     read -n 1 -s key && case "$key" in
-      'B') ((now_choice < ${#choices[@]} - 1)) && ((now_choice++)) ;;  # Down arrow key
-      'A') ((now_choice > 0)) && ((now_choice--)) ;;                   # Up arrow key
+      'B') ((now_choice < ${#choices[@]} - 1)) && ((now_choice++)) || true ;;  # Down arrow key
+      'A') ((now_choice > 0)) && ((now_choice--)) || true ;;                   # Up arrow key
     esac
 
     # Move choice
@@ -516,7 +516,7 @@ set_tag_hash() {
 
   # Do set and get result
   result=$(git tag "$1" "$2" --force)$(git push "https://$GH_TOKEN_CUSTOM@github.com/$repo.git" "$1" --force 2>&1)
-  
+
   # Print result
   if echo "$result" | grep -q "forced update" ; then
     echo ", $1 => ${2:0:7}"
@@ -1164,7 +1164,11 @@ release_choices() {
 
   # Arguments
   local to_be_done=${1:-"to be restored"}
-  local auto_choose_most_recent=${2:-0}
+  if [[ "${2:-0}" == "1" ]]; then
+    local auto_choose="most recent"
+  else
+    local auto_choose=${2:-0}
+  fi
 
   # Load releases list
   echo -n "Loading list of backup versions available on github..."
@@ -1172,7 +1176,7 @@ release_choices() {
   echo " Done"
 
   # Split $list into an array of lines
-  IFS=$'\n' read -r -d '' -a lines <<< "$list"
+  mapfile -t lines < <(printf '%s\n' "$list")
 
   # Get index of 'TAG NAME' within the header line
   local header=$(echo -e "${lines[0]}" | cat -v | sed -E 's~\^(\[[^m]+?m|M)~~g') && index=${header%%"TAG NAME"*} && index=${#index}
@@ -1199,15 +1203,15 @@ release_choices() {
   # Prepare choices in the right order
   choices=() && for tag in "${sorted_tags[@]}"; do choices+=("${releases["$tag"]}"); done
 
-  # If the most recent backup should be auto-patched - we don't ask user to choose
-  if [[ $auto_choose_most_recent = 1 ]]; then
+  # If the most recent backup should be auto-selected - we don't ask user to choose
+  if [[ "$auto_choose" = "most recent" ]]; then
 
     # Get text
     choice_idx=${default_release_idx}
     choice_txt=${choices[$default_release_idx]}
 
-  # Else
-  else
+  # Else if arbitrary backup should be manually selected
+  elif [[ "$auto_choose" = "0" ]]; then
 
     # Print instruction on how to use keyboard keys
     echo "Please select the version you want $to_be_done"
@@ -1217,10 +1221,19 @@ release_choices() {
     echo "$header" && read_choice $default_release_idx
   fi
 
-  # Parse and print the tag of selected backup
-  selected=$(echo -e "$choice_txt" | sed -e 's/\x1b\[[0-9;]*m//g' -e 's/·/-/g')
-  selected=$(echo "${selected:$index}") && selected="${selected%% *}"
-  echo ""
+  # If it was manual choice or auto choice ofmost recent backup
+  if [[ "$auto_choose" = "0" || "$auto_choose" = "most recent" ]]; then
+
+    # Parse the tag of selected backup
+    selected=$(echo -e "$choice_txt" | sed -e 's/\x1b\[[0-9;]*m//g' -e 's/·/-/g')
+    selected=$(echo "${selected:$index}") && selected="${selected%% *}"
+    echo ""
+
+  # Else set up selected to be the one given as 2nd arg
+  else
+    echo ""
+    selected="$auto_choose"
+  fi
 }
 
 # Cancel source code restore, i.e. revert source code to the state which was before restore

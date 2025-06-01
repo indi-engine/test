@@ -19,7 +19,7 @@ else
   set -eu -o pipefail
 
   # Set up restore scenario based on 1st arg
-  if [[ "${1:-}" = "dump" || "${1:-}" = "uploads" || "${1:-}" = "cancel" || "${1:-}" = "confirm" ]]; then
+  if [[ "${1:-}" = "dump" || "${1:-}" = "uploads" || "${1:-}" = "cancel" || "${1:-}" = "commit" ]]; then
     scenario="${1:-}"
   else
     scenario="full"
@@ -29,7 +29,7 @@ else
   [[ -z ${GH_TOKEN:-} && ! -z $GH_TOKEN_CUSTOM ]] && export GH_TOKEN=${GH_TOKEN_CUSTOM:-}
 
   # If first arg is 'cancel' or 'commit'
-  if [[ "${1:-}" = "cancel" || "${1:-}" = "commit" ]]; then
+  if [[ "$scenario" = "cancel" || "$scenario" = "commit" ]]; then
 
     # If we're in an uncommitted restore state
     if is_uncommitted_restore; then
@@ -37,7 +37,7 @@ else
       # If first arg is 'cancel' - cancel restore for source code, database and uploads, i.e. revert all to the state
       # before restore. We don't have something like 'cancel_restore_dump', because dump.sql.gz will be moved into
       # data/ from data/before/ and then will be picked by mysql re-init
-      if [[ "${1:-}" = "cancel" ]]; then
+      if [[ "$scenario" = "cancel" ]]; then
         cancel_restore_source
         cancel_restore_uploads_and_dump
 
@@ -59,15 +59,27 @@ else
   # Else
   else
 
+    # Set up restore choice based on 1st arg for "full" scenario or based on 2nd arg for "dump" and "uploads" scenarios
+    if [[ "$scenario" = "full" ]]; then
+      tag="${1:-}"
+    elif [[ "$scenario" = "dump" || "$scenario" = "uploads" ]]; then
+      tag="${2:-}"
+    else
+      tag=""
+    fi
+
     # If first argument is 'dump' or 'uploads'
     if [[ "$scenario" = "dump" || "$scenario" = "uploads" ]]; then
       echo -e "\nRESTORE ONLY: ${1:-}\n"
     fi
 
-    # Ask user to select the backup to be restored and print selected
-    release_choices && echo -e "SELECTED VERSION: $(get_release_title $selected)\n"
+    # Load backups list and ask user to select one unless $tag is not empty
+    release_choices "to be restored" "$tag"
 
-    # If first argument is NOT given
+    # Print selected
+    echo -e "SELECTED VERSION: $(get_release_title $selected)\n"
+
+    # If full restore needed
     if [[ "$scenario" = "full" ]]; then
 
       # If we're going to enter into an 'uncommitted restore' state then
@@ -115,7 +127,7 @@ else
     echo ""
 
   # Else if we've cancelled restore - print corresponding message
-  elif [[ "${1:-}" = "cancel" ]]; then
+  elif [[ "$scenario" = "cancel" ]]; then
     echo ""
     echo "Your $APP_ENV instance is now reverted to the original version,"
     echo "which was active BEFORE you've entered in an 'uncommitted restore' state,"
