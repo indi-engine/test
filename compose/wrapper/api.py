@@ -1,5 +1,5 @@
 # Do imports
-from flask import Flask, request
+from flask import Flask, request, jsonify
 import subprocess, pika, json, pexpect
 
 # Instantiate app
@@ -90,25 +90,48 @@ def backup():
     # Run bash script and stream stdout/stderr
     return bash_stream(command, data)
 
-# Get backups list
-@app.route('/backups', methods=['GET'])
-def backups():
+# Get restore status
+@app.route('/restore/status', methods=['GET'])
+def restore_status():
 
-    # Run
-    proc = subprocess.Popen(
-        ['gh', 'release', 'list', '--json', 'createdAt,isDraft,isLatest,isPrerelease,name,publishedAt,tagName'],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True
-    )
+    # Get branch
+    branch = subprocess.run(['git', 'rev-parse', '--abbrev-ref', 'HEAD'], capture_output=True, text=True)
 
-    # Get output
-    stdout, stderr = proc.communicate()
+    # If something went wrong - flush failure
+    if branch.returncode != 0:
+        return jsonify({'success': False, 'msg': branch.stderr}), 500
+
+    # Get notes
+    notes = subprocess.run(['git', 'notes', 'show'], capture_output=True, text=True)
+
+    # If something went wrong - flush failure
+    if notes.returncode != 0:
+        return jsonify({'success': False, 'msg': notes.stderr}), 500
 
     # Return output
-    return stdout + stderr, 200
+    return json.dumps({
+       'is_uncommitted_restore': branch.stdout.strip() == 'HEAD',
+       'version': notes.stdout.strip()
+    }, ensure_ascii=False), 200
 
-# Restore
+# Get restore choices
+@app.route('/restore/choices', methods=['GET'])
+def restore_choices():
+
+    # Get restore choices list
+    choices = subprocess.run(
+        ['gh', 'release', 'list', '--json', 'createdAt,isDraft,isLatest,isPrerelease,name,publishedAt,tagName'],
+        capture_output=True, text=True
+    )
+
+    # If something went wrong - flush failure
+    if choices.returncode != 0:
+        return jsonify({'success': False, 'msg': choices.stderr}), 500
+
+    # Return output
+    return choices.stdout.strip(), 200
+
+# Do restore
 @app.route('/restore', methods=['POST'])
 def restore():
 
