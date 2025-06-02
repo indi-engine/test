@@ -13,7 +13,7 @@ def bash_stream(
     # Connect to RabbitMQ
     nn = pika.BlockingConnection(pika.ConnectionParameters('rabbitmq'))
     mq = nn.channel()
-    qn = 'indi-engine.custom.opentab--' + data.get('to')
+    qn = 'indi-engine.custom.opentab--' + data.get('to') # todo: add validation
 
     # Start bash script in a pseudo-terminal
     child = pexpect.spawn('bash -c "' + command + '"', encoding='utf-8')
@@ -135,22 +135,19 @@ def restore_choices():
 @app.route('/restore', methods=['POST'])
 def restore():
 
-    # Connect to RabbitMQ
-    nn = pika.BlockingConnection(pika.ConnectionParameters('rabbitmq'))
-    mq = nn.channel()
-
     # Get json data
     data = request.get_json(silent=True) or {}
 
     # Basic restore command
     command = 'source restore'
 
-    # If scenario is to restore just the database (or uploads) - add to command
-    if data.get('scenario') in ['dump', 'uploads']:
+    # If scenario is to restore just the database (or uploads), or to commit/cancel the restore - add to command
+    if data.get('scenario') in ['dump', 'uploads', 'commit', 'cancel']:
         command += f" {data.get('scenario')}"
 
-    # Add tag name of a release/backup to be restored
-    command += f" {data.get('tagName')}"
+    # If scenario is not 'commit' or 'cancel'
+    if data.get('scenario') in ['full', 'dump', 'uploads']:
+        command += f" {data.get('tagName')}" # todo: add validation
 
     # Run bash script and stream stdout/stderr
     return bash_stream(command, data)
