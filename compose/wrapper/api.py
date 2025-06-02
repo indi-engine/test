@@ -135,6 +135,7 @@ def restore_choices():
 @app.route('/restore', methods=['POST'])
 def restore():
 
+    asd="test"
     # Get json data
     data = request.get_json(silent=True) or {}
 
