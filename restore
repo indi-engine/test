@@ -78,8 +78,13 @@ else
     # Load backups list and ask user to select one unless $tag is not empty
     release_choices "to be restored" "$tag"
 
+    # Colors
+    r="\e[31m" # red
+    g="\e[32m" # green
+    d="\e[0m"  # default
+
     # Print selected
-    echo -e "SELECTED VERSION: $(get_release_title $selected)\n"
+    echo -e "SELECTED VERSION: ${g}$(get_release_title $selected)${d}\n"
 
     # If full restore needed
     if [[ "$scenario" = "full" ]]; then
@@ -118,7 +123,7 @@ else
   if is_uncommitted_restore; then
 
     # Print the restored version
-    echo -n "RESTORED VERSION: " && echo $(git notes show) && echo ""
+    echo -n "RESTORED VERSION: ${g}" && echo $(git notes show)${d} && echo ""
 
     # Print the clarification
     echo "Your development instance is now in an 'uncommitted restore' state. Now you can"
