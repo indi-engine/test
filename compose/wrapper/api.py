@@ -105,7 +105,7 @@ def restore_status():
     notes = subprocess.run(['git', 'notes', 'show'], capture_output=True, text=True)
 
     # If something went wrong - flush failure
-    if notes.returncode != 0:
+    if branch.stdout.strip() == 'HEAD' and notes.returncode != 0:
         return jsonify({'success': False, 'msg': notes.stderr}), 500
 
     # Return output
