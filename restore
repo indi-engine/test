@@ -123,7 +123,7 @@ else
   if is_uncommitted_restore; then
 
     # Print the restored version
-    echo -n "RESTORED VERSION: ${g}" && echo $(git notes show)${d} && echo ""
+    echo -ne "RESTORED VERSION: ${g}" && echo $(git notes show)${d} && echo ""
 
     # Print the clarification
     echo "Your development instance is now in an 'uncommitted restore' state. Now you can"
