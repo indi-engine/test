@@ -3,6 +3,11 @@
 # Declare array of [repo name => releases qty] pairs
 declare -gA releaseQty=()
 
+# Colors
+r="\e[31m" # red
+g="\e[32m" # green
+d="\e[0m"  # default
+
 # Get the whole project up and running
 getup() {
 
@@ -1174,7 +1179,8 @@ release_choices() {
 
   # Load releases list
   echo -n "Loading list of backup versions available on github..."
-  local list=$(script -q -c "gh release list" /dev/null)
+  local list=$(script -q -c "gh release list 2> var/log/err" /dev/null)
+  if [ -f var/log/err ]; then echo -e ${r}; cat var/log/err; echo -e ${d}; rm var/log/err; exit 1; fi
   echo " Done"
 
   # Split $list into an array of lines

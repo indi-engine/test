@@ -78,11 +78,6 @@ else
     # Load backups list and ask user to select one unless $tag is not empty
     release_choices "to be restored" "$tag"
 
-    # Colors
-    r="\e[31m" # red
-    g="\e[32m" # green
-    d="\e[0m"  # default
-
     # Print selected
     echo -e "SELECTED VERSION: ${g}$(get_release_title $selected)${d}\n"
 
