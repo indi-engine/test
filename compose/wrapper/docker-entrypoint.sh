@@ -99,4 +99,4 @@ init_uploads_if_need
 make_very_first_release_if_need
 
 # Run HTTP api server
-FLASK_APP=compose/wrapper/api.py flask run --host=0.0.0.0 --port=80 --reload
+FLASK_APP=compose/wrapper/api.py flask run --host=0.0.0.0 --port=80

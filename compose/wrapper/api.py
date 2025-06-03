@@ -56,16 +56,17 @@ def bash_stream(
     # Close script process
     child.close()
 
-    # Indicate all done
-    mq.basic_publish(
-        exchange = '',
-        routing_key = qn,
-        body = json.dumps({
-            'type': data.get('type'),
-            'id': data.get('id'),
-            'bytes': 'All done.'
-        })
-    )
+    # Indicate all done, if all done
+    if child.exitstatus == 0 and child.signalstatus is None:
+        mq.basic_publish(
+            exchange = '',
+            routing_key = qn,
+            body = json.dumps({
+                'type': data.get('type'),
+                'id': data.get('id'),
+                'bytes': 'All done.'
+            })
+        )
 
     # Clone connection
     nn.close()
