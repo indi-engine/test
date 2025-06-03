@@ -88,9 +88,6 @@ else
       # do a preliminary local backup of current state so that we'll be
       # able to get back if restore will be cancelled
       backup_current_state_locally "data/before"
-
-      # Restore source code in custom/ dir
-      restore_source "$selected" "custom"
     fi
 
     # If first argument is NOT given or is given as "uploads"
@@ -111,6 +108,11 @@ else
 
       # If $tag is given - print a new line
       [[ ! -z "$tag" ]] && echo ""
+    fi
+
+    # If full restore needed - restore source code in custom/ dir
+    if [[ "$scenario" = "full" ]]; then
+      restore_source "$selected" "custom"
     fi
   fi
 
