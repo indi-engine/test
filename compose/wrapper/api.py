@@ -74,27 +74,6 @@ def bash_stream(
     # Return
     return 'Executed', 200
 
-# Returns True if `tag` is a valid GitHub tag name, False otherwise.
-# Follows the rules of git-check-ref-format and GitHub's additional constraints.
-def is_valid_github_tag(tag):
-
-    # Forbidden start/end/substrings
-    if tag.startswith('/') or tag.endswith('/') or tag.endswith('.lock') or tag == '@':
-        return False
-
-    # Forbidden patterns or characters
-    if any(re.search(p, tag) for p in [
-        r'[\x00-\x20\x7f]',    # ASCII control chars and DEL
-        r'[\~\^:\?\*\[\\]',    # Special forbidden chars
-        r'//',                 # Double slash
-        r'\.\.',               # Double dot
-        r'@{',                 # At sign + {
-    ]):
-        return False
-
-    # It's seems it's ok
-    return True
-
 # Add backup endpoint
 @app.route('/backup', methods=['POST'])
 def backup():
@@ -170,8 +149,10 @@ def restore():
 
     # If scenario is not 'commit' or 'cancel'
     if data.get('scenario') in ['full', 'dump', 'uploads']:
-        if is_valid_github_tag(data.get('tagName'))
+        if bool(re.fullmatch(r'[a-zA-Z0-9._-]{1,63}', data.get('tagName'))):
             command += f" {data.get('tagName')}"
+        else:
+            return jsonify({'success': False, 'msg': 'Invalid tag name'}), 400
 
     # Run bash script and stream stdout/stderr
     return bash_stream(command, data)
