@@ -105,15 +105,21 @@ def restore_status():
     # Get notes
     notes = subprocess.run(['git', 'notes', 'show'], capture_output=True, text=True)
 
-    # If something went wrong - flush failure
-    if branch.stdout.strip() == 'HEAD' and notes.returncode != 0:
-        return jsonify({'success': False, 'msg': notes.stderr}), 500
-
-    # Return output
-    return json.dumps({
-       'is_uncommitted_restore': branch.stdout.strip() == 'HEAD',
-       'version': notes.stdout.strip()
-    }, ensure_ascii=False), 200
+    # Chec and return json
+    if (
+        branch.stdout.strip() == 'HEAD'
+        and notes.returncode == 0
+        and re.search(r' · [a-f0-9]{7}$', notes.stdout.strip())
+    ):
+        return json.dumps({
+           'is_uncommitted_restore': True,
+           'version': notes.stdout.strip()
+        }, ensure_ascii=False), 200
+    else:
+        return json.dumps({
+           'is_uncommitted_restore': False,
+           'version': ''
+        }, ensure_ascii=False), 200
 
 # Get restore choices
 @app.route('/restore/choices', methods=['GET'])
