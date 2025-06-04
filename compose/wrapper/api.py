@@ -1,6 +1,6 @@
 # Do imports
 from flask import Flask, request, jsonify
-import subprocess, pika, json, pexpect
+import subprocess, pika, json, pexpect, re
 
 # Instantiate app
 app = Flask(__name__)
@@ -73,6 +73,27 @@ def bash_stream(
 
     # Return
     return 'Executed', 200
+
+# Returns True if `tag` is a valid GitHub tag name, False otherwise.
+# Follows the rules of git-check-ref-format and GitHub's additional constraints.
+def is_valid_github_tag(tag):
+
+    # Forbidden start/end/substrings
+    if tag.startswith('/') or tag.endswith('/') or tag.endswith('.lock') or tag == '@':
+        return False
+
+    # Forbidden patterns or characters
+    if any(re.search(p, tag) for p in [
+        r'[\x00-\x20\x7f]',    # ASCII control chars and DEL
+        r'[\~\^:\?\*\[\\]',    # Special forbidden chars
+        r'//',                 # Double slash
+        r'\.\.',               # Double dot
+        r'@{',                 # At sign + {
+    ]):
+        return False
+
+    # It's seems it's ok
+    return True
 
 # Add backup endpoint
 @app.route('/backup', methods=['POST'])
@@ -149,7 +170,8 @@ def restore():
 
     # If scenario is not 'commit' or 'cancel'
     if data.get('scenario') in ['full', 'dump', 'uploads']:
-        command += f" {data.get('tagName')}" # todo: add validation
+        if is_valid_github_tag(data.get('tagName'))
+            command += f" {data.get('tagName')}"
 
     # Run bash script and stream stdout/stderr
     return bash_stream(command, data)
