@@ -1095,7 +1095,7 @@ get_release_title() {
 # 2.Note of a current commit ends with ' · abc1234' where abc1234 is a first 7 chars of a commit hash
 is_uncommitted_restore() {
   [[ "$(git rev-parse --abbrev-ref HEAD)" = "HEAD" ]] && \
-  [[ "$(git notes show 2>/dev/null)" =~  · [a-f0-9]{7}$ ]]
+  [[ "$(git notes show 2>/dev/null)" =~ \ ·\ [a-f0-9]{7}$ ]]
 }
 
 # Prepend each printed line with string given by 1st arg
