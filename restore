@@ -78,8 +78,11 @@ else
     # Load backups list and ask user to select one unless $tag is not empty
     release_choices "to be restored" "$tag"
 
+    # Get selected
+    title=$(get_release_title $selected)
+
     # Print selected
-    echo -e "SELECTED VERSION: ${g}$(get_release_title $selected)${d}\n"
+    echo -e "SELECTED VERSION: ${g}${choice_title}${d}\n"
 
     # If full restore needed
     if [[ "$scenario" = "full" ]]; then

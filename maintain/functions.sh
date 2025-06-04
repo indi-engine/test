@@ -1072,6 +1072,12 @@ get_release_title() {
   # Arguments
   local tag=$1
 
+  # If release does not exist - print error and exit
+  if [[ ! -v releases["$tag"] ]]; then
+    echo "Release '$tag' not found" >&2
+    exit 1
+  fi
+
   # Get release title
   local title=$(echo -e "${releases[$tag]}" | sed -e 's/\x1b\[[0-9;]*m//g')
   title=$(echo -e "${releases[$selected]}" | cat -v | sed -E 's~\^(\[[^m]+?m|M)~~g' | sed -E 's~M-BM-7~-~g')
@@ -1084,9 +1090,12 @@ get_release_title() {
   echo $title
 }
 
-# Check if we're in an 'uncommitted_restore' state
+# Check if we're in an 'uncommitted_restore' state, which is true if both conditions are in place:
+# 1.We're currently in a detached head state
+# 2.Note of a current commit ends with ' · abc1234' where abc1234 is a first 7 chars of a commit hash
 is_uncommitted_restore() {
-  [ "$(git rev-parse --abbrev-ref HEAD)" = "HEAD" ]
+  [[ "$(git rev-parse --abbrev-ref HEAD)" = "HEAD" ]] && \
+  [[ "$(git notes show 2>/dev/null)" =~  · [a-f0-9]{7}$ ]]
 }
 
 # Prepend each printed line with string given by 1st arg
