@@ -1074,9 +1074,11 @@ get_release_title() {
 
   # Get release title
   local title=$(echo -e "${releases[$tag]}" | sed -e 's/\x1b\[[0-9;]*m//g')
-  title=${title%%"$tag"*}
-  title=${title%%"Latest"*}
+  title=$(echo -e "${releases[$selected]}" | cat -v | sed -E 's~\^(\[[^m]+?m|M)~~g' | sed -E 's~M-BM-7~-~g')
+  length=${release_choice_title_length:-37}
+  title=$(echo "${title:0:$length}")
   title="${title%"${title##*[![:space:]]}"}"
+  title=$(echo "$title" | sed -E 's~ - ~ · ~g')
 
   # Print title
   echo $title
@@ -1188,6 +1190,8 @@ release_choices() {
 
   # Get index of 'TAG NAME' within the header line
   local header=$(echo -e "${lines[0]}" | cat -v | sed -E 's~\^(\[[^m]+?m|M)~~g') && index=${header%%"TAG NAME"*} && index=${#index}
+  local up_to_type=${header%%"TYPE"*}
+  release_choice_title_length=${#up_to_type}
 
   # Get and print header, with removing it out of the lines array
   header=$(echo -e " ?  ${lines[0]}" | perl -pe 's/\e\[[0-9;?]*[A-Za-ln-zA-Z]//g' | sed -E 's~\x1b][0-9]+;\?~~g'); unset 'lines[0]'
