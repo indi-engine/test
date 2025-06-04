@@ -79,7 +79,7 @@ else
     release_choices "to be restored" "$tag"
 
     # Get selected
-    title=$(get_release_title $selected)
+    choice_title=$(get_release_title $selected)
 
     # Print selected
     echo -e "SELECTED VERSION: ${g}${choice_title}${d}\n"
