@@ -1147,7 +1147,7 @@ restore_source() {
   if is_uncommitted_restore; then
 
     # Cleanup previously applied DevOps patch, if any, to prevent conflict with new DevOps patch, if any
-    if git diff --quiet; then git stash --quiet && git stash drop --quiet; fi
+    if git diff -s; then git stash --quiet && git stash drop --quiet; fi
 
     # Cleanup previously applied commit note, to prevent misleading info from being shown in 'git log'
     # We do that because notes here are used as a temporary reminder of which backup was restored, but
@@ -1176,7 +1176,7 @@ restore_source() {
 
   # Apply composer packages state
   echo "Setting up composer packages state:"
-  composer -d custom install --no-ansi 2>&1 | prepend "» "
+  composer -d custom install --no-ansi 2>&1 | grep -v " fund" | prepend "» "
   echo ""
 }
 
@@ -1278,7 +1278,7 @@ cancel_restore_source() {
 
   # Revert composer packages state
   echo "Setting up composer packages state:"
-  composer -d custom install --no-ansi 2>&1 | prepend "» "
+  composer -d custom install --no-ansi 2>&1 | grep -v " fund" | prepend "» "
 }
 
 # Cancel uploads restore, i.e. revert uploads to the state which was before restore
