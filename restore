@@ -38,8 +38,8 @@ else
       # before restore. We don't have something like 'cancel_restore_dump', because dump.sql.gz will be moved into
       # data/ from data/before/ and then will be picked by mysql re-init
       if [[ "$scenario" = "cancel" ]]; then
-        cancel_restore_source
         cancel_restore_uploads_and_dump
+        cancel_restore_source
 
       # Else if first argument is 'commit' - backup the original version
       # and make restored version to be the new latest
