@@ -1286,7 +1286,6 @@ cancel_restore_source() {
   # Revert composer packages state
   echo "Setting up composer packages state:"
   composer -d custom install --no-ansi 2>&1 | grep -v " fund" | prepend "» "
-  echo ""
 }
 
 # Cancel uploads restore, i.e. revert uploads to the state which was before restore
