@@ -1163,7 +1163,7 @@ restore_source() {
   fi
 
   # Restore the whole repo at selected point in history
-  git checkout -q "$hash"
+  git checkout -q "$hash" 2>&1 | prepend "» "
   echo -e " Done"
 
   # Apply DevOps patch so that critical files a still at the most recent state
