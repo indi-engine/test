@@ -1396,6 +1396,8 @@ commit_restore() {
 
   # However, checkout custom dir at the restored version
   echo -n "» Switching source code in custom/ dir to the restored version..."
+  git restore --source "$hash" custom
+  git add custom
   git checkout "$hash" -- custom
   echo " Done"
 
