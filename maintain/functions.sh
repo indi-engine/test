@@ -1146,7 +1146,7 @@ restore_source() {
   # If we are already in 'detached HEAD' (i.e. 'uncommitted restore') state
   if is_uncommitted_restore; then
 
-    # Cleanup previously applied DevOps patch, if any, to prevent conflict with new DevOps patch, if any
+    # Cleanup uncommitted changes, if any, to prevent conflict with the state to be further checked out
     if ! git diff --quiet || ! git diff --cached --quiet; then
         git stash --quiet && git stash drop --quiet;
     fi
@@ -1271,6 +1271,11 @@ cancel_restore_source() {
 
   # Remove notes
   git notes remove "$(get_head)" 2> /dev/null
+
+  # Cleanup uncommitted changes, if any, to prevent conflict with the state to be further checked out
+  if ! git diff --quiet || ! git diff --cached --quiet; then
+      git stash --quiet && git stash drop --quiet;
+  fi
 
   # Restore source code at master-branch
   git checkout -q master
