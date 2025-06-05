@@ -1398,7 +1398,6 @@ commit_restore() {
   echo -n "» Switching source code in custom/ dir to the restored version..."
   git restore --source "$hash" custom
   git add custom
-  git checkout "$hash" -- custom
   echo " Done"
 
   # Create a commit to make the restore to be a point in the project history
