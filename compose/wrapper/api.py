@@ -135,6 +135,10 @@ def restore_choices():
     if choices.returncode != 0:
         return jsonify({'success': False, 'msg': choices.stderr}), 500
 
+    # Cache choices
+    with open('var/tmp/choices.json', 'w') as file:
+        file.write(choices.stdout.strip())
+
     # Return output
     return choices.stdout.strip(), 200
 
@@ -147,7 +151,7 @@ def restore():
     data = request.get_json(silent=True) or {}
 
     # Basic restore command
-    command = 'source restore'
+    command = 'CACHED=1 source restore'
 
     # If scenario is to restore just the database (or uploads), or to commit/cancel the restore - add to command
     if data.get('scenario') in ['dump', 'uploads', 'commit', 'cancel']:

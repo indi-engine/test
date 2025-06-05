@@ -75,8 +75,50 @@ else
       fi
     fi
 
-    # Load backups list and ask user to select one unless $tag is not empty
-    release_choices "to be restored" "$tag"
+    # If CACHED=1 was prepended to 'source restore ...' command,
+    # which is the case only when command is triggered by Flask
+    if [[ "${CACHED:-}" = "1" ]]; then
+
+      # Set cache filename
+      file="var/tmp/choices.json"
+
+      # If cache file exists
+      if [[ -f "$file" ]]; then
+
+        # Get file change time in seconds
+        ctime=$(stat -c %Y "$file")
+
+        # Get current time in seconds
+        now=$(date +%s)
+
+        # Calculate the age in seconds
+        age=$(( now - ctime ))
+
+        # If cache file is updated less than 5 minutes ago
+        if (( age < 300 )); then
+
+          # Declare global associative $releases array
+          declare -gA releases=()
+
+          # Parse cache file json and populate that array
+          while IFS=$'\t' read -r tagName name; do releases["$tagName"]="$name";
+          done < <(jq -r '.[] | "\(.tagName)\t\(.name)"' "$file")
+        fi
+      fi
+    fi
+
+    # If $releases is defined as an associative array and has at least one item
+    if declare -p releases 2>/dev/null | grep -q 'declare \-A' && (( ${#releases[@]} > 0 )); then
+
+      # Set up $selected as $tag
+      selected="$tag"
+
+    # Else
+    else
+
+      # Load backups list and ask user to select one unless $tag is not empty
+      release_choices "to be restored" "$tag"
+    fi
 
     # Get selected
     choice_title=$(get_release_title $selected)
