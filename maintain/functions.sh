@@ -1175,7 +1175,8 @@ restore_source() {
   git notes add -m "$title · ${hash:0:7}"
 
   # Apply composer packages state
-  composer -d custom install
+  echo "Apply composer packages state:"
+  composer -d custom install --no-ansi | prepend "» "
   echo ""
 }
 
@@ -1276,7 +1277,8 @@ cancel_restore_source() {
   echo -e " Done"
 
   # Revert composer packages state
-  composer -d custom install
+  echo "Reverting composer packages state:"
+  composer -d custom install --no-ansi | prepend "» "
 }
 
 # Cancel uploads restore, i.e. revert uploads to the state which was before restore
