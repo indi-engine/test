@@ -327,7 +327,7 @@ sort_releases() {
 
   # Auxiliary variables
   env_codes="psd"
-  rotation_period_codes="hdwmc"
+  rotation_period_codes="hdwmcb"
   unknown_sortable_date="000000000000"
   unknown_env_code_index="9"
 
