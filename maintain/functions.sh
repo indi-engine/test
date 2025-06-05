@@ -1417,7 +1417,7 @@ commit_restore() {
   git remote set-url origin https://-@github.com/$(get_current_repo)
 
   # Print restore is now committed
-  echo -e "\nRESTORE COMMITTED: $version\n"
+  echo -e "\nRESTORE COMMITTED: ${g}${version}${d}\n"
 }
 
 
