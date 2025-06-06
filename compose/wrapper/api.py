@@ -17,21 +17,40 @@ def queue_exists(channel, name):
 # Send websocket message to open xterm in Indi Engine UI
 def ws(to, data, mq, mysql):
 
-    # Foreach [roleId => adminId] pair
-    for key, value in to.items():
+    # Queue name prefix
+    prefix = 'indi-engine.custom.opentab--'
 
-        # Get browser tabs, if any opened by the user that can be identified by that pair
-        mysql.execute(f"SELECT `token` FROM `realtime` WHERE `type` = 'channel' AND `roleId` = '{key}' AND `adminId` = '{value}'")
+    # Set up initial value for refresh flag
+    if to['token']:
+        exists, mq = queue_exists(mq, prefix + to['token'])
+        refresh = not exists
+        if refresh:
+            mysql.execute("DELETE FROM `realtime` WHERE `type` = 'channel' AND `token` = %s", (to['token']))
+    else:
+        refresh = True
 
-        # Foreach tab
-        for channel in mysql.fetchall():
+    # If token should be refreshed
+    if refresh:
 
-            # Send message
-            mq.basic_publish(
-                exchange = '',
-                routing_key = 'indi-engine.custom.opentab--' + channel['token'],
-                body = json.dumps(data)
-            )
+        # Get browser tab, if any opened by the user that can be identified by that pair
+        mysql.execute(
+            "SELECT `token` FROM `realtime` WHERE `type` = 'channel' AND `roleId` = %s AND `adminId` = %s",
+            (to['roleId'], to['adminId'])
+        )
+
+        # If at least one found - refresh token
+        if mysql.rowcount:
+            to['token'] = mysql.fetchone()['token']
+
+    # Send message
+    mq.basic_publish(
+        exchange = '',
+        routing_key = prefix + to['token'],
+        body = json.dumps(data)
+    )
+
+    # Return rabbitmq channel (existing or new)
+    return mq
 
 # Spawn bash script and stream stdout/stderr to a websocket channel
 def bash_stream(
@@ -53,7 +72,7 @@ def bash_stream(
     to=data.get('to')
 
     # Send websocket message to open xterm in Indi Engine UI
-    ws(to, data, mq, mysql)
+    mq = ws(to, data, mq, mysql)
 
     # While script is running
     while True:
@@ -69,7 +88,7 @@ def bash_stream(
                 break
 
             # Send websocket message to open xterm in Indi Engine UI
-            ws(to, {
+            mq = ws(to, {
                 'type': data.get('type'),
                 'id': data.get('id'),
                 'bytes': bytes
@@ -84,7 +103,7 @@ def bash_stream(
 
     # Indicate all done, if all done
     if child.exitstatus == 0 and child.signalstatus is None:
-        ws(to, {
+        mq = ws(to, {
             'type': data.get('type'),
             'id': data.get('id'),
             'bytes': 'All done.'

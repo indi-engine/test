@@ -112,6 +112,7 @@ services:
       EMAIL_SENDER_DOMAIN: ${EMAIL_SENDER_DOMAIN:-$LETS_ENCRYPT_DOMAIN}
       BACKUPS: ${BACKUPS:-}
       APP_ENV: ${APP_ENV}
+      PYTHONUNBUFFERED: 1
     working_dir: ${DOC}
     depends_on:
       mysql:
