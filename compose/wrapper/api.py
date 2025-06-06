@@ -1,9 +1,26 @@
 # Do imports
 from flask import Flask, request, jsonify
-import subprocess, pika, json, pexpect, re
+import subprocess, pika, json, pexpect, re, pymysql
+from pika.exceptions import ChannelClosedByBroker
 
-# Instantiate app
+# Instantiate Flask app
 app = Flask(__name__)
+
+# Check if given queue exists, i.e. user didn't closed the browser tab yet
+def queue_exists(channel, name):
+    try:
+        channel.queue_declare(queue=name, passive=True)
+        return True, channel
+    except ChannelClosedByBroker:
+        return False, channel.connection.channel()
+
+# Send websocket message to open xterm in Indi Engine UI
+def ws(mq, to, data):
+    mq.basic_publish(
+        exchange = '',
+        routing_key = 'indi-engine.custom.opentab--' + to, # todo: add validation
+        body = json.dumps(data)
+    )
 
 # Spawn bash script and stream stdout/stderr to a websocket channel
 def bash_stream(
@@ -13,17 +30,16 @@ def bash_stream(
     # Connect to RabbitMQ
     nn = pika.BlockingConnection(pika.ConnectionParameters('rabbitmq'))
     mq = nn.channel()
-    qn = 'indi-engine.custom.opentab--' + data.get('to') # todo: add validation
+
+    # Instantiate mysql connection with db cursor
+    mysql_conn = pymysql.connect(host='mysql', user='custom', password='custom', database='custom', autocommit=True)
+    mysql = mysql_conn.cursor(pymysql.cursors.DictCursor)
 
     # Start bash script in a pseudo-terminal
     child = pexpect.spawn('bash -c "' + command + '"', encoding='utf-8')
 
     # Send websocket message to open xterm in Indi Engine UI
-    mq.basic_publish(
-        exchange = '',
-        routing_key = qn,
-        body = json.dumps(data)
-    )
+    ws(mq, data.get('to'), data)
 
     # While script is running
     while True:
@@ -38,16 +54,24 @@ def bash_stream(
             if not bytes and not child.isalive():
                 break
 
-            # Else push to websocket
-            mq.basic_publish(
-                exchange = '',
-                routing_key = qn,
-                body = json.dumps({
-                    'type': data.get('type'),
-                    'id': data.get('id'),
-                    'bytes': bytes
-                })
-            )
+            # Check if queue exists
+            exists, mq = queue_exists(mq, 'indi-engine.custom.opentab--' + data.get('to'))
+
+            # If exists
+            if exists:
+
+                # Send websocket message to open xterm in Indi Engine UI
+                ws(mq, data.get('to'), {'type': data.get('type'), 'id': data.get('id'), 'bytes': bytes})
+
+            else:
+                # Get browser tabs, if any opened by the same user
+                mysql.execute("SELECT `token` FROM `realtime` WHERE `type` = 'channel' AND `roleId` = '1' AND `adminId` = '1'")
+
+                # Foreach tab
+                for row in mysql.fetchall():
+                    print(row['token'])
+                    ws(mq, row['token'], {'type': data.get('type'), 'id': data.get('id'), 'bytes': bytes})
+
 
         # If pexpect is SURE the script is done and the PTY is closed - break the loop
         except pexpect.EOF:
@@ -58,18 +82,14 @@ def bash_stream(
 
     # Indicate all done, if all done
     if child.exitstatus == 0 and child.signalstatus is None:
-        mq.basic_publish(
-            exchange = '',
-            routing_key = qn,
-            body = json.dumps({
-                'type': data.get('type'),
-                'id': data.get('id'),
-                'bytes': 'All done.'
-            })
-        )
+        ws(mq, data.get('to'), {'type': data.get('type'), 'id': data.get('id'), 'bytes': 'All done.'})
 
-    # Clone connection
+    # Clone rabbitmq connection
     nn.close()
+
+    # Close mysql cursor and connection
+    mysql.close()
+    mysql_conn.close()
 
     # Return
     return 'Executed', 200
@@ -146,7 +166,6 @@ def restore_choices():
 @app.route('/restore', methods=['POST'])
 def restore():
 
-    asd="test"
     # Get json data
     data = request.get_json(silent=True) or {}
 
