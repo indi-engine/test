@@ -1,2 +1,2 @@
 <?php
-require 'custom/vendor/indi-engine/system/application/indi';
+require 'vendor/indi-engine/system/application/indi';
