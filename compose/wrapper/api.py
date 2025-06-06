@@ -15,12 +15,23 @@ def queue_exists(channel, name):
         return False, channel.connection.channel()
 
 # Send websocket message to open xterm in Indi Engine UI
-def ws(mq, to, data):
-    mq.basic_publish(
-        exchange = '',
-        routing_key = 'indi-engine.custom.opentab--' + to, # todo: add validation
-        body = json.dumps(data)
-    )
+def ws(to, data, mq, mysql):
+
+    # Foreach [roleId => adminId] pair
+    for key, value in to.items():
+
+        # Get browser tabs, if any opened by the user that can be identified by that pair
+        mysql.execute(f"SELECT `token` FROM `realtime` WHERE `type` = 'channel' AND `roleId` = '{key}' AND `adminId` = '{value}'")
+
+        # Foreach tab
+        for channel in mysql.fetchall():
+
+            # Send message
+            mq.basic_publish(
+                exchange = '',
+                routing_key = 'indi-engine.custom.opentab--' + channel['token'],
+                body = json.dumps(data)
+            )
 
 # Spawn bash script and stream stdout/stderr to a websocket channel
 def bash_stream(
@@ -38,8 +49,11 @@ def bash_stream(
     # Start bash script in a pseudo-terminal
     child = pexpect.spawn('bash -c "' + command + '"', encoding='utf-8')
 
+    # Recipient definition
+    to=data.get('to')
+
     # Send websocket message to open xterm in Indi Engine UI
-    ws(mq, data.get('to'), data)
+    ws(to, data, mq, mysql)
 
     # While script is running
     while True:
@@ -54,24 +68,12 @@ def bash_stream(
             if not bytes and not child.isalive():
                 break
 
-            # Check if queue exists
-            exists, mq = queue_exists(mq, 'indi-engine.custom.opentab--' + data.get('to'))
-
-            # If exists
-            if exists:
-
-                # Send websocket message to open xterm in Indi Engine UI
-                ws(mq, data.get('to'), {'type': data.get('type'), 'id': data.get('id'), 'bytes': bytes})
-
-            else:
-                # Get browser tabs, if any opened by the same user
-                mysql.execute("SELECT `token` FROM `realtime` WHERE `type` = 'channel' AND `roleId` = '1' AND `adminId` = '1'")
-
-                # Foreach tab
-                for row in mysql.fetchall():
-                    print(row['token'])
-                    ws(mq, row['token'], {'type': data.get('type'), 'id': data.get('id'), 'bytes': bytes})
-
+            # Send websocket message to open xterm in Indi Engine UI
+            ws(to, {
+                'type': data.get('type'),
+                'id': data.get('id'),
+                'bytes': bytes
+            }, mq, mysql)
 
         # If pexpect is SURE the script is done and the PTY is closed - break the loop
         except pexpect.EOF:
@@ -82,7 +84,11 @@ def bash_stream(
 
     # Indicate all done, if all done
     if child.exitstatus == 0 and child.signalstatus is None:
-        ws(mq, data.get('to'), {'type': data.get('type'), 'id': data.get('id'), 'bytes': 'All done.'})
+        ws(to, {
+            'type': data.get('type'),
+            'id': data.get('id'),
+            'bytes': 'All done.'
+        }, mq, mysql)
 
     # Clone rabbitmq connection
     nn.close()
