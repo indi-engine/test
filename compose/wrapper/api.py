@@ -20,6 +20,10 @@ def ws(to, data, mq, mysql):
     # Queue name prefix
     prefix = 'indi-engine.custom.opentab--'
 
+    # If title-prop exist in data - save for later reuse
+    if 'title' in data:
+        ws.title = data['title']
+
     # Set up initial value for refresh flag
     if to['token']:
         exists, mq = queue_exists(mq, prefix + to['token'])
@@ -41,6 +45,10 @@ def ws(to, data, mq, mysql):
         # If at least one found - refresh token
         if mysql.rowcount:
             to['token'] = mysql.fetchone()['token']
+
+    # Append title
+    if 'title' not in data:
+        data['title'] = ws.title
 
     # Send message
     mq.basic_publish(
@@ -106,7 +114,8 @@ def bash_stream(
         mq = ws(to, {
             'type': data.get('type'),
             'id': data.get('id'),
-            'bytes': 'All done.'
+            'bytes': 'All done.',
+            'closable': True
         }, mq, mysql)
 
     # Clone rabbitmq connection

@@ -1114,8 +1114,8 @@ get_head() {
 backup_current_state_locally() {
   if ! is_uncommitted_restore; then
     echo -e "Backing up the current version locally before restoring the selected one:"
-    source maintain/dump-prepare.sh ${1:-} | prepend "» "
     source maintain/uploads-prepare.sh ${1:-} | prepend "» "
+    source maintain/dump-prepare.sh ${1:-} | prepend "» "
     echo ""
   fi
 }

@@ -57,11 +57,6 @@ else
       # Ask user to select which backup should be patched with new dump or uploads
       release_choices "to be patched" $most_recent
 
-      # Colors
-      r="\e[31m" # red
-      g="\e[32m" # green
-      d="\e[0m"  # default
-
       # If there was a manual choice for backup version to be patched
       if [[ $most_recent = 0 ]]; then
 
