@@ -1,9 +1,5 @@
 #!/bin/bash
 
-# Set ownership here, as current dir is a volume so Dockerfile's chown doesn't take effect
-echo "Running chown.."
-chown -R $user:$user .
-
 # Command prefix to run something on behalf on www-data user
 run='/sbin/runuser '$user' -s /bin/bash -c'
 
@@ -12,9 +8,6 @@ $run 'if [[ -f "debug.txt" ]] ; then rm debug.txt ; fi'
 
 # If '../vendor'-dir is not yet moved back to /var/www - do move
 $run 'if [[ ! -d "vendor" && -d "../vendor" ]] ; then echo "Moving ../vendor back here..." ; mv ../vendor vendor ; echo "Moved." ; fi'
-
-# If '../.idea'-dir is not yet moved back to /var/www - do move
-$run 'if [[ ! -d ".idea" && -d "../.idea" ]] ; then echo "Moving ../.idea back here..." ; mv ../.idea .idea ; echo "Moved." ; fi'
 
 # Copy config.ini file from example one, if not exist
 $run 'if [[ ! -f "application/config.ini" ]] ; then cp application/config.ini.example application/config.ini ; fi'

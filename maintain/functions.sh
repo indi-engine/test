@@ -1196,8 +1196,10 @@ release_choices() {
 
   # Load releases list
   echo -n "Loading list of backup versions available on github..."
-  local list=$(script -q -c "gh release list 2> var/log/err" /dev/null)
-  if [[ -s var/log/err ]]; then echo ""; cat var/log/err >&2; rm var/log/err; exit 1; fi
+  local lerr="var/log/release_list.err"
+  local list=$(script -q -c "gh release list 2> $lerr" /dev/null)
+  if [[ -s "$lerr" ]]; then echo ""; cat "$lerr" >&2; exit 1; fi
+  rm -f "$lerr";
   echo " Done"
 
   # Split $list into an array of lines
