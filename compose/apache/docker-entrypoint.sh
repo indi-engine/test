@@ -125,7 +125,7 @@ if ! grep -q "SetEnv DOC " /etc/apache2/apache2.conf; then
 fi
 
 # Make logs dir is writable
-chown "www-data:www-data" "/var/log/custom" "/var/www/tmp"
+chown "www-data:www-data" "$DOC/application/config.ini" "/var/log/custom" "/var/www/tmp"
 
 # Run original entrypoint script provided by base image
 echo "Apache started" && source /usr/local/bin/docker-php-entrypoint "apache2-foreground"

@@ -27,11 +27,13 @@ RUN echo "ServerName indi-engine"      >> apache2.conf  && \
 WORKDIR $DOC
 ## </Apache> ##
 
+## <PHP extensions> ##
 RUN apt-get update && \
     apt-get install -y libfreetype-dev libjpeg62-turbo-dev libpng-dev libzip-dev libicu-dev && \
     docker-php-ext-configure gd --with-freetype --with-jpeg && \
     docker-php-ext-install -j$(nproc) gd zip pdo_mysql shmop intl sockets && \
     apt-get install -y libmagickwand-dev imagemagick && pecl install imagick && docker-php-ext-enable imagick
+## </PHP extensions> ##
 
 ## <JRE> ##
 RUN apt-get install -y default-jre
@@ -42,22 +44,13 @@ ARG GH_TOKEN_SYSTEM
 RUN php -r "copy('https://getcomposer.org/installer', 'composer-setup.php');" \
  && php composer-setup.php --install-dir=/usr/local/bin --filename=composer \
  && php -r "unlink('composer-setup.php');"
-COPY custom/composer.json custom/composer.lock .
-RUN chown -R $user:$user ..
-USER $user
+COPY custom .
 RUN composer config github-oauth.github.com $GH_TOKEN_SYSTEM
 RUN composer install
 RUN sed -Ei 's~\t(filemode|pushurl)\s*=\s*.*~~I' vendor/indi-engine/client/.git/config && \
   sed -Ei 's~\t(filemode|pushurl)\s*=\s*.*~~I' vendor/indi-engine/system/.git/config && \
-  mv vendor ../vendor && \
-  mv .idea  ../.idea
+  mv vendor ../vendor
 ## </Composer> ##
-
-## <IndiEngine> ##
-USER root
-COPY custom .
-RUN chown -R $user .
-## </IndiEngine> ##
 
 ## <Sendmail> ##
 RUN bash -c "DEBIAN_FRONTEND=noninteractive apt install -y postfix <<< $'2' && apt install -y opendkim opendkim-tools"
