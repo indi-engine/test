@@ -17,6 +17,7 @@ RUN echo "ServerName indi-engine"      >> apache2.conf  && \
     echo "<Directory $DOC>"            >> apache2.conf  && \
     echo "  AllowOverride All"         >> apache2.conf  && \
     echo "</Directory>"                >> apache2.conf  && \
+    rm conf-enabled/other-vhosts-access-log.conf        && \
     cp mods-available/rewrite.load        mods-enabled/ && \
     cp mods-available/headers.load        mods-enabled/ && \
     cp mods-available/proxy.load          mods-enabled/ && \

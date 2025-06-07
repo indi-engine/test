@@ -29,8 +29,6 @@ services:
     working_dir: ${DOC}
     volumes:
       - ./custom/:${DOC}/
-      #- mysql_server_data:/var/lib/mysql
-      #- mysql_client_binaries:/usr/bin/mysql_client_binaries
       - letsencrypt:/etc/letsencrypt
       - opendkim:/etc/opendkim
       - ./compose/opendkim.conf:/etc/opendkim.conf
@@ -39,8 +37,8 @@ services:
       - ./compose/apache/apache2.conf:/etc/apache2/conf-enabled/custom.conf:ro
       - ./compose/apache/htpasswd.conf:/etc/apache2/conf-available/htpasswd.conf:ro
       - ./compose/apache/crontab:/var/www/crontab:ro
-      - ./var/log/apache/:/var/log/apache2
-      - ./var/log/:/var/log/vol
+      - ./var/log/compose/apache/:/var/log/apache2
+      - ./var/log/custom:/var/log/custom
       - ./var/tmp/:/var/www/tmp
 
   mysql:

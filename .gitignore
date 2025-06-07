@@ -1,13 +1,19 @@
+# Env files that have secrets inside
 .env
 .env.hard
+
+# PHPStorm dir
 .idea/
-var/tmp/*
+
+# Python cache
+compose/wrapper/__pycache__
+
+# Config and 3rd-party packages
+custom/application/config.ini
+custom/vendor/
 
 # Uploads
 custom/data/upload/
-
-# Python
-compose/wrapper/__pycache__
 
 # Other files to me ignored
 custom/**/*.gz
@@ -17,3 +23,6 @@ custom/**/*.pem
 custom/**/*.zip
 custom/**/*.pdf
 custom/**/*.tgz
+
+# Temporary files
+var/tmp/*

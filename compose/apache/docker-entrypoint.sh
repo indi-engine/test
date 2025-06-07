@@ -7,9 +7,8 @@ chown -R $user:$user .
 # Command prefix to run something on behalf on www-data user
 run='/sbin/runuser '$user' -s /bin/bash -c'
 
-# Remove debug.txt file, if exists, and create log/ directory if not exists
+# Remove debug.txt file, if exists
 $run 'if [[ -f "debug.txt" ]] ; then rm debug.txt ; fi'
-#$run 'if [[ ! -d "log" ]] ; then mkdir log ; fi'
 
 # If '../vendor'-dir is not yet moved back to /var/www - do move
 $run 'if [[ ! -d "vendor" && -d "../vendor" ]] ; then echo "Moving ../vendor back here..." ; mv ../vendor vendor ; echo "Moved." ; fi'
@@ -31,7 +30,7 @@ pid_file="/var/run/apache2/apache2.pid"
 if [ -f "$pid_file" ]; then rm "$pid_file" && echo "Apache old pid-file removed"; fi
 
 # Logs dir
-logs="/var/log/vol"
+logs="/var/log/apache2"
 
 # Trim leading/trailing whitespaces from domain name(s)
 LETS_ENCRYPT_DOMAIN=$(echo "$LETS_ENCRYPT_DOMAIN" | xargs)
@@ -132,14 +131,8 @@ if ! grep -q "SetEnv DOC " /etc/apache2/apache2.conf; then
   echo "SetEnv DOC $DOC" >> /etc/apache2/apache2.conf
 fi
 
-# Make sure php log is writable
-log="$logs/php.log"
-[[ ! -f $log ]] && touch "$log"
-chown "www-data:www-data" "$log" "/var/www/tmp"
-
-# Make sure languages dir is writable, if exists
-#lng="wp-content/languages"
-#[[ -d $lng ]] && chown -R "www-data:www-data" $lng
+# Make logs dir is writable
+chown "www-data:www-data" "/var/log/custom" "/var/www/tmp"
 
 # Run original entrypoint script provided by base image
 echo "Apache started" && source /usr/local/bin/docker-php-entrypoint "apache2-foreground"
