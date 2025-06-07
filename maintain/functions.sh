@@ -5,7 +5,7 @@ declare -gA releaseQty=()
 
 # Colors
 r="\e[31m" # red
-g="\e[32m" # green
+g="\e[36m" # cyan
 d="\e[0m"  # default
 
 # Get the whole project up and running

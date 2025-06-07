@@ -111,12 +111,17 @@ def bash_stream(
 
     # Indicate all done, if all done
     if child.exitstatus == 0 and child.signalstatus is None:
-        mq = ws(to, {
-            'type': data.get('type'),
-            'id': data.get('id'),
-            'bytes': 'All done.',
-            'closable': True
-        }, mq, mysql)
+        bytes = 'All done.'
+    else:
+        bytes = ''
+
+    # Make terminal closable in any case
+    mq = ws(to, {
+        'type': data.get('type'),
+        'id': data.get('id'),
+        'bytes': bytes,
+        'closable': True
+    }, mq, mysql)
 
     # Clone rabbitmq connection
     nn.close()
