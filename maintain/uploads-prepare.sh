@@ -29,7 +29,7 @@ msg="Zipping $source into $uploads..."
 dir="$(pwd)"; cd "$source"
 
 # Prepare arguments for zip-command
-args="-r -0 -s $GH_ASSET_CHUNK_SIZE ../../../$uploads ."
+args="-r -0 -s $GH_ASSET_MAX_SIZE ../../../$uploads ."
 
 # If we're within an interactive shell
 if [[ $- == *i* || -n "${FLASK_APP:-}" ]]; then
