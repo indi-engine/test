@@ -1412,7 +1412,10 @@ cancel_restore_uploads_and_dump() {
   # for those to be further picked by restore_uploads() call and mysql re-init
   src="data/before" && trg="data"
   echo -n "Moving uploads.zip and dump.sql.gz from $src/ into $trg/..."
-  if [ -d $src ]; then mv -f "$src"/* "$trg"/ && rm -r "$src"; fi
+  if [ -d $src ]; then
+    rm -f data/uploads.z*
+    mv -f "$src"/* "$trg"/ && rm -r "$src"
+  fi
   echo -e " Done\n"
 
   # Revert uploads to the state before restore
