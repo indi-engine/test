@@ -618,25 +618,37 @@ backup_uploads() {
   base="${asset%.zip}".z*
 
   # Get chunks of uploads.zip
-  old_chunks=$(load_chunk_list "$release" ${base##*/})
+  remote_chunks=$(load_chunk_list "$release" ${base##*/})
 
   # For each new chunk - upload on github
-  new_chunks=$(ls -1 $base 2> /dev/null | sort -V)
-  for new_chunk in $new_chunks; do
-    upload_asset "$new_chunk" "$release"
-  done
+  local_chunks=$(ls -1 $base 2> /dev/null | sort -V)
+  local_chunks_qty=$(echo "$local_chunks" | wc -w)
+
+  # If there a more than 1 chunk
+  if (( local_chunks_qty > 1 )); then
+
+    # Upload one by one
+    echo "Uploading chunks:"
+    for local_chunk in $local_chunks; do
+      upload_asset "$local_chunk" "$release" "» "
+    done
+
+  # Else download the single file, overwriting the existing one, if any
+  else
+    upload_asset "$asset" "$release"
+  fi
 
   # Replace newlines with spaces in both lists
-  new_chunks="${new_chunks//$'\n'/ }"
+  local_chunks="${local_chunks//$'\n'/ }"
 
   # Delete obsolete assets, if any
   obsolete="0"
-  for old_chunk in $old_chunks; do
-    if [[ ! " $new_chunks " =~ [[:space:]]$(dirname "$base")/$old_chunk[[:space:]] ]]; then
+  for remote_chunk in $remote_chunks; do
+    if [[ ! " $local_chunks " =~ [[:space:]]$(dirname "$base")/$remote_chunk[[:space:]] ]]; then
       if [[ $obsolete = "0" ]]; then
         echo "Deleting outdated remote chunk(s):" && obsolete="1"
       fi
-      echo -n "» " && delete_asset "$old_chunk" "$release"
+      echo -n "» " && delete_asset "$remote_chunk" "$release"
     fi
   done
 

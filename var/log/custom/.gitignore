@@ -1,3 +1,4 @@
 *.log
 *.stderr
+debug.txt
 err/

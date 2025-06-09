@@ -28,11 +28,8 @@ msg="Zipping $source into $uploads..."
 # Save current dir and goto dir to be zipped
 dir="$(pwd)"; cd "$source"
 
-# Set zip archive chunk size
-chunk_size="30m"
-
 # Prepare arguments for zip-command
-args="-r -0 -s $chunk_size ../../../$uploads ."
+args="-r -0 -s $GH_ASSET_CHUNK_SIZE ../../../$uploads ."
 
 # If we're within an interactive shell
 if [[ $- == *i* || -n "${FLASK_APP:-}" ]]; then
@@ -51,7 +48,7 @@ fi
 cd "$dir"
 
 # Get and print zip size
-size=$(du -ch $base 2> /dev/null | awk '/total/ {print $1}' | sed -E 's~[BKMGTP]$~ &~'); echo -n ", ${size,,}b"
+size=$(du -scbh $base 2> /dev/null | awk '/total/ {print $1}' | sed -E 's~^[0-9.]+~& ~'); echo -n ", ${size,,}b"
 
 # Find all chunks
 chunks=$(ls -1 $base 2> /dev/null | sort -V)
