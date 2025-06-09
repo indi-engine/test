@@ -15,10 +15,49 @@ uploads="$dir/uploads.zip"
 # Create $dir if it does not exist
 [ -d "$dir" ] || mkdir -p "$dir"
 
-# Delete existing zip file, if any
-[ -f "$uploads" ] && rm "$uploads"
+# Get glob pattern for zip file(s)
+base="${uploads%.zip}".z*
 
-# Create backup locally
-echo -n "Zipping $source/ into $uploads... "
-zip -r -0 "$uploads" "$source" > /dev/null
-echo " Done"
+# Remove all .z01, .z02, etc chunks for this archive including .zip file
+rm -f $base
+
+# Get total files and folders to be added to zip
+qty=$(find $source -mindepth 1 | wc -l)
+msg="Zipping $source into $uploads..."
+
+# Save current dir and goto dir to be zipped
+dir="$(pwd)"; cd "$source"
+
+# Set zip archive chunk size
+chunk_size="30m"
+
+# Prepare arguments for zip-command
+args="-r -0 -s $chunk_size ../../../$uploads ."
+
+# If we're within an interactive shell
+if [[ $- == *i* || -n "${FLASK_APP:-}" ]]; then
+
+  # Zip with progress tracking
+  zip $args | awk -v qty="$qty" -v msg="$msg" '/ adding: / {idx++; printf "\r%s %d of %d\033[K", msg, idx, qty; fflush();}'
+  clear_last_lines 1
+  echo -en "\n$msg Done"
+
+# Else extract with NO progress tracking
+else
+  echo -n "$msg" && zip $args > /dev/null && echo -n " Done"
+fi
+
+# Go back to original dir
+cd "$dir"
+
+# Get and print zip size
+size=$(du -ch $base 2> /dev/null | awk '/total/ {print $1}' | sed -E 's~[BKMGTP]$~ &~'); echo -n ", ${size,,}b"
+
+# Find all chunks
+chunks=$(ls -1 $base 2> /dev/null | sort -V)
+
+# Print chunks qty if more than 1
+qty=$(echo "$chunks" | wc -l); if (( $qty > 1 )); then echo -n " ($qty chunks)"; fi
+
+# Print newline
+echo ""

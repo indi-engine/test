@@ -587,6 +587,24 @@ backup_dump() {
   echo ""
 }
 
+# Load whitespace-separated list of names of assets that are chunks
+load_chunk_list() {
+
+  # Arguments
+  release=$1
+  pattern=$2
+
+  # Load asset names
+  if [[ ! -z "$GH_TOKEN_CUSTOM" ]]; then
+    local list=$(gh release view "$release" --json author,assets --jq '.assets[].name | select(test("'$pattern'"))')
+  else
+    local list=$(curl -s "https://api.github.com/repos/$repo/releases" | jq -r '.[] | "\(.tag_name)=\(.name)"') # todo: fix
+  fi
+
+  # Replace newlines with spaces
+  echo "${list//$'\n'/ }"
+}
+
 # Backup current uploads on github into given release assets of current repo
 backup_uploads() {
 
@@ -596,9 +614,50 @@ backup_uploads() {
   # Prepare uploads
   source maintain/uploads-prepare.sh "" && asset="$uploads"
 
-  # Upload on github
-  upload_asset "$asset" "$release"
+  # Get glob pattern for zip file(s)
+  base="${asset%.zip}".z*
+
+  # Get chunks of uploads.zip
+  old_chunks=$(load_chunk_list "$release" ${base##*/})
+
+  # For each new chunk - upload on github
+  new_chunks=$(ls -1 $base 2> /dev/null | sort -V)
+  for new_chunk in $new_chunks; do
+    upload_asset "$new_chunk" "$release"
+  done
+
+  # Replace newlines with spaces in both lists
+  new_chunks="${new_chunks//$'\n'/ }"
+
+  # Delete obsolete assets, if any
+  obsolete="0"
+  for old_chunk in $old_chunks; do
+    if [[ ! " $new_chunks " =~ [[:space:]]$(dirname "$base")/$old_chunk[[:space:]] ]]; then
+      if [[ $obsolete = "0" ]]; then
+        echo "Deleting outdated remote chunk(s):" && obsolete="1"
+      fi
+      echo -n "» " && delete_asset "$old_chunk" "$release"
+    fi
+  done
+
+  # Print newline
   echo ""
+}
+
+# Delete asset within a release
+delete_asset() {
+
+  # Arguments
+  asset=$1
+  release=$2
+
+  # Do delete
+  if [[ ! -z "$GH_TOKEN_CUSTOM" ]]; then
+    gh release delete-asset -y "$release" "$asset"
+  else
+    echo "Not yet supported"
+    exit 1
+  fi
 }
 
 # Upload given file on github as an asset in given release of the current repo
@@ -701,12 +760,50 @@ restore_uploads() {
   # Name of the backup file
   local file="uploads.zip"
 
-  # If $release is given - download the backup file, overwriting the existing one, if any
+  # Get glob pattern for zip file(s)
+  base="${file%.zip}".z*
+
+  # Load lists of remote and local chunks of $file
+  local_chunks=$(ls -1 "data/"$base 2> /dev/null | sort -V | tr '\n' ' ') || true
+
+  # If $release is given
   if [[ -n "$release" ]]; then
-    local msg="Downloading $file for selected version into data/ dir..." && echo $msg
-    gh release download "$release" -D data -p "$file" --clobber
-    clear_last_lines 1
-    echo "$msg Done"
+
+    # Load list of remote chunks of $file
+    remote_chunks=$(load_chunk_list "$release" $base)
+    remote_chunks_qty=$(echo "$remote_chunks" | wc -w)
+
+    # If there a more than 1 chunk
+    if (( remote_chunks_qty > 1 )); then
+
+      # Get current repo
+      repo=$(get_current_repo)
+
+      # Download one by one
+      echo "Downloading $file for selected version into data/ dir ($remote_chunks_qty chunks):"
+      for remote_chunk in $remote_chunks; do
+        gh release download "$release" -D data -p "$remote_chunk" --clobber
+        echo "» Downloading $remote_chunk from '$repo:$release'... Done"
+      done
+
+    # Else download the single file, overwriting the existing one, if any
+    else
+      local msg="Downloading $file for selected version into data/ dir..." && echo $msg
+      gh release download "$release" -D data -p "$file" --clobber
+      clear_last_lines 1
+      echo "$msg Done"
+    fi
+
+    # Delete obsolete local chunks, if any
+    obsolete="0"
+    for local_chunk in $local_chunks; do
+      if [[ ! " $remote_chunks " =~ [[:space:]]${local_chunk##*/}[[:space:]] ]]; then
+        if [[ $obsolete = "0" ]]; then
+          echo "Deleting outdated local chunk(s):" && obsolete="1"
+        fi
+        echo -n "» " && echo "$local_chunk" && rm "$local_chunk"
+      fi
+    done
   fi
 
   # Extract
@@ -1040,21 +1137,27 @@ unzip_file() {
   # Remove existing destination dir, if any
   [[ -d $dest ]] && rm -rf "$dest"/*
 
-  # Count total quantity of files in the archive and prepare msgs
-  local qty=$(unzip -l "$file" | grep -c '^[ ]*[0-9]')
+  # Count total quantity of files in the archive
+  local qty=$(7z l "$file*" | grep -cE '^[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2} [^ ]')
+
+  # Prepare messages
   local m1="Unzipping" && local m2="files into $dest/ dir..."
 
+  # Prepare 7z command opts
+  local opts="x -y -o$dest -bso0 -bse0"
+
   # If we're within an interactive shell
-  if [[ $- == *i* ]]; then
+  if [[ $- == *i* || -n "${FLASK_APP:-}" ]]; then
 
     # Extract with progress tracking
-    unzip -o "$file" -d "$dest" | awk -v qty="$qty" -v m1="$m1" -v m2="$m2" '/extracting:/ {idx++; printf "\r%s %d of %d %s", m1, idx, qty, m2}'
+    echo "$m1 $qty $m2"
+    7z $opts -bsp1 "$file*"
     clear_last_lines 1
-    echo -e "\n$m1 $qty of $qty $m2 Done"
+    echo "$m1 $qty $m2 Done"
 
   # Else extract with NO progress tracking
   else
-    echo -n "$m1 $qty $m2" && unzip -o -q "$file" && echo " Done"
+    echo -n "$m1 $qty $m2" && 7z $opts "$file*" && echo " Done"
   fi
 
   # If $owner arg is given - apply ownership for the destination dir
