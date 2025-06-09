@@ -28,20 +28,30 @@ msg="Zipping $source into $uploads..."
 # Save current dir and goto dir to be zipped
 dir="$(pwd)"; cd "$source"
 
-# Prepare arguments for zip-command
-args="-r -0 -s $GH_ASSET_MAX_SIZE ../../../$uploads ."
+# If source directory (current dir) is empty
+if [ -z "$(ls -A ".")" ]; then
 
-# If we're within an interactive shell
-if [[ $- == *i* || -n "${FLASK_APP:-}" ]]; then
+  # Use 7z-command to create an empty zip archive, because zip-command does not support that
+  echo -n "$msg" && 7z a -tzip -bso0 -bse0 "../../../$uploads" && echo -n " Done"
 
-  # Zip with progress tracking
-  zip $args | awk -v qty="$qty" -v msg="$msg" '/ adding: / {idx++; printf "\r%s %d of %d\033[K", msg, idx, qty; fflush();}'
-  clear_last_lines 1
-  echo -en "\n$msg Done"
-
-# Else extract with NO progress tracking
+# Else
 else
-  echo -n "$msg" && zip $args > /dev/null && echo -n " Done"
+
+  # Prepare arguments for zip-command
+  args="-r -0 -s $GH_ASSET_MAX_SIZE ../../../$uploads ."
+
+  # If we're within an interactive shell
+  if [[ $- == *i* || -n "${FLASK_APP:-}" ]]; then
+
+    # Zip with progress tracking
+    zip $args | awk -v qty="$qty" -v msg="$msg" '/ adding: / {idx++; printf "\r%s %d of %d\033[K", msg, idx, qty; fflush();}'
+    clear_last_lines 1
+    echo -en "\n$msg Done"
+
+  # Else extract with NO progress tracking
+  else
+    echo -n "$msg" && zip $args > /dev/null && echo -n " Done"
+  fi
 fi
 
 # Go back to original dir
