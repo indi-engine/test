@@ -576,9 +576,9 @@ backup_prepared_assets() {
   if (( local_chunks_qty > 1 )); then
 
     # Upload one by one
-    echo "» Uploading chunks:"
+    echo "» Uploading $local_chunks_qty chunks:"
     for local_chunk in $local_chunks; do
-      upload_asset "$local_chunk" "$tag" "» » "
+      upload_asset "$local_chunk" "$tag" "» - "
     done
 
   # Else download the single file, overwriting the existing one, if any
