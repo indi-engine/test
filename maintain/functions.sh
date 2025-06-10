@@ -596,7 +596,7 @@ load_chunk_list() {
 
   # Load asset names
   if [[ ! -z "$GH_TOKEN_CUSTOM" ]]; then
-    local list=$(gh release view "$release" --json author,assets --jq '.assets[].name | select(test("'$pattern'"))')
+    local list=$(gh release view "$release" --json assets --jq '.assets[].name | select(test("'$pattern'"))')
   else
     local list=$(curl -s "https://api.github.com/repos/$repo/releases" | jq -r '.[] | "\(.tag_name)=\(.name)"') # todo: fix
   fi

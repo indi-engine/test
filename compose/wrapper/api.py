@@ -6,6 +6,10 @@ from pika.exceptions import ChannelClosedByBroker
 # Instantiate Flask app
 app = Flask(__name__)
 
+# Check tag syntax
+def valid_tag(tagName):
+    return bool(re.fullmatch(r'[a-zA-Z0-9._-]{1,63}', tagName))
+
 # Check if given queue exists, i.e. user didn't closed the browser tab yet
 def queue_exists(channel, name):
     try:
@@ -201,6 +205,31 @@ def restore_choices():
     # Return output
     return choices.stdout.strip(), 200
 
+# Get restore choice details
+@app.route('/restore/choices/<tagName>', methods=['GET'])
+def restore_choice_details(tagName):
+
+    # Validate tagName
+    if not valid_tag(tagName):
+        return jsonify({'success': False, 'msg': 'Invalid tagName-param given'}), 400
+
+    # Get release assets list
+    chunks = subprocess.run(
+        ['gh', 'release', 'view', tagName, '--json', 'assets'],
+        capture_output=True, text=True
+    )
+
+    # If something went wrong - flush failure
+    if chunks.returncode != 0:
+        return jsonify({'success': False, 'msg': chunks.stderr}), 500
+
+    # Cache choices
+    with open('var/tmp/chunks.json', 'w') as file:
+        file.write(chunks.stdout.strip())
+
+    # Return output
+    return chunks.stdout.strip(), 200
+
 # Do restore
 @app.route('/restore', methods=['POST'])
 def restore():
@@ -217,7 +246,7 @@ def restore():
 
     # If scenario is not 'commit' or 'cancel'
     if data.get('scenario') in ['full', 'dump', 'uploads']:
-        if bool(re.fullmatch(r'[a-zA-Z0-9._-]{1,63}', data.get('tagName'))):
+        if valid_tag(data.get('tagName')):
             command += f" {data.get('tagName')}"
         else:
             return jsonify({'success': False, 'msg': 'Invalid tag name'}), 400
