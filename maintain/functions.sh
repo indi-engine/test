@@ -568,8 +568,25 @@ backup_prepared_assets() {
   # Re-assign given tag to the latest commit
   set_tag_hash "$tag" "$(get_head)" && echo "» ---"
 
-  # Backup uploads and dump
-  upload_asset "$dir/uploads.zip" "$tag" "» "
+  # Prepare chunks list and qty
+  local_chunks=$(ls -1 "$dir/uploads".z* 2> /dev/null | sort -V)
+  local_chunks_qty=$(echo "$local_chunks" | wc -w)
+
+  # If there a more than 1 chunk
+  if (( local_chunks_qty > 1 )); then
+
+    # Upload one by one
+    echo "» Uploading chunks:"
+    for local_chunk in $local_chunks; do
+      upload_asset "$local_chunk" "$tag" "» » "
+    done
+
+  # Else download the single file, overwriting the existing one, if any
+  else
+    upload_asset "$dir/uploads.zip" "$tag" "» "
+  fi
+
+  # Backup dump
   upload_asset "$dir/$MYSQL_DUMP" "$tag" "» "
 }
 
