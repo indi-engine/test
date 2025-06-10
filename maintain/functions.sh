@@ -576,7 +576,7 @@ backup_prepared_assets() {
   if (( local_chunks_qty > 1 )); then
 
     # Upload one by one
-    echo "» Uploading $local_chunks_qty chunks of $dir/uploads.zip:"
+    echo "» Uploading $dir/uploads.zip ($local_chunks_qty chunks):"
     for local_chunk in $local_chunks; do
       upload_asset "$local_chunk" "$tag" "» - "
     done
