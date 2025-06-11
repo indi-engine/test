@@ -48,7 +48,7 @@ else
     clear_last_lines 1
     echo -en "\n$msg Done"
 
-  # Else extract with NO progress tracking
+  # Else zip with NO progress tracking
   else
     echo -n "$msg" && zip $args > /dev/null && echo -n " Done"
   fi

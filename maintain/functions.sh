@@ -599,8 +599,45 @@ backup_dump() {
   # Prepare dump
   source maintain/dump-prepare.sh "" && asset="$dump"
 
-  # Upload on github
-  upload_asset "$asset" "$release"
+  # Get glob pattern for zip file(s)
+  base="$asset"*
+
+  # Get remote chunks of uploads.zip
+  remote_chunks=$(load_chunk_list "$release" ${base##*/})
+
+  # For each local chunk - upload on github
+  local_chunks=$(ls -1 $base 2> /dev/null | sort -V)
+  local_chunks_qty=$(echo "$local_chunks" | wc -w)
+
+  # If there a more than 1 local chunk
+  if (( local_chunks_qty > 1 )); then
+
+    # Upload one by one
+    echo "Uploading chunks:"
+    for local_chunk in $local_chunks; do
+      upload_asset "$local_chunk" "$release" "» "
+    done
+
+  # Else upload the single file, overwriting the existing one, if any
+  else
+    upload_asset "$asset" "$release"
+  fi
+
+  # Replace newlines with spaces in list of local chunks
+  local_chunks="${local_chunks//$'\n'/ }"
+
+  # Delete obsolete remote assets, if any remaining on github
+  obsolete="0"
+  for remote_chunk in $remote_chunks; do
+    if [[ ! " $local_chunks " =~ [[:space:]]$(dirname "$base")/$remote_chunk[[:space:]] ]]; then
+      if [[ $obsolete = "0" ]]; then
+        echo "Deleting outdated remote chunk(s):" && obsolete="1"
+      fi
+      echo -n "» " && delete_asset "$remote_chunk" "$release"
+    fi
+  done
+
+  # Print newline
   echo ""
 }
 
@@ -634,14 +671,14 @@ backup_uploads() {
   # Get glob pattern for zip file(s)
   base="${asset%.zip}".z*
 
-  # Get chunks of uploads.zip
+  # Get remote chunks of uploads.zip
   remote_chunks=$(load_chunk_list "$release" ${base##*/})
 
-  # For each new chunk - upload on github
+  # For each local chunk - upload on github
   local_chunks=$(ls -1 $base 2> /dev/null | sort -V)
   local_chunks_qty=$(echo "$local_chunks" | wc -w)
 
-  # If there a more than 1 chunk
+  # If there a more than 1 local chunk
   if (( local_chunks_qty > 1 )); then
 
     # Upload one by one
@@ -650,15 +687,15 @@ backup_uploads() {
       upload_asset "$local_chunk" "$release" "» "
     done
 
-  # Else download the single file, overwriting the existing one, if any
+  # Else upload the single file, overwriting the existing one, if any
   else
     upload_asset "$asset" "$release"
   fi
 
-  # Replace newlines with spaces in both lists
+  # Replace newlines with spaces in list of local chunks
   local_chunks="${local_chunks//$'\n'/ }"
 
-  # Delete obsolete assets, if any
+  # Delete obsolete remote assets, if any remaining on github
   obsolete="0"
   for remote_chunk in $remote_chunks; do
     if [[ ! " $local_chunks " =~ [[:space:]]$(dirname "$base")/$remote_chunk[[:space:]] ]]; then
