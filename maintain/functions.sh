@@ -645,8 +645,8 @@ backup_dump() {
 load_chunk_list() {
 
   # Arguments
-  release=$1
-  pattern=$2
+  release="$1"
+  pattern="$2"
 
   # Load asset names
   if [[ ! -z "$GH_TOKEN_CUSTOM" ]]; then
@@ -752,12 +752,50 @@ restore_dump() {
   # Name of the backup file
   local file="dump.sql.gz"
 
-  # If $release is given - download the backup file, overwriting the existing one, if any
+  # Get glob pattern for zip file(s)
+  local base="${file%.gz}".gz*
+
+  # Load lists of remote and local chunks of $file
+  local local_chunks=$(ls -1 "data/"$base 2> /dev/null | sort -V | tr '\n' ' ') || true
+
+  # If $release is given
   if [[ -n "$release" ]]; then
-    local msg="Downloading $file for selected version into data/ dir..." && echo $msg
-    gh release download "$release" -D data -p "$file" --clobber
-    clear_last_lines 1
-    echo "$msg Done"
+
+    # Load list of remote chunks of $file
+    local remote_chunks=$(load_chunk_list "$release" "$base")
+    local remote_chunks_qty=$(echo "$remote_chunks" | wc -w)
+
+    # If there a more than 1 chunk
+    if (( remote_chunks_qty > 1 )); then
+
+      # Get current repo
+      repo=$(get_current_repo)
+
+      # Download one by one
+      echo "Downloading $file for selected version into data/ dir ($remote_chunks_qty chunks):"
+      for remote_chunk in $remote_chunks; do
+        gh release download "$release" -D data -p "$remote_chunk" --clobber
+        echo "» Downloading $remote_chunk from '$repo:$release'... Done"
+      done
+
+    # Else download the single file, overwriting the existing one, if any
+    else
+      local msg="Downloading $file for selected version into data/ dir..." && echo $msg
+      gh release download "$release" -D data -p "$file" --clobber
+      clear_last_lines 1
+      echo "$msg Done"
+    fi
+
+    # Delete obsolete local chunks, if any
+    local obsolete="0"
+    for local_chunk in $local_chunks; do
+      if [[ ! " $remote_chunks " =~ [[:space:]]${local_chunk##*/}[[:space:]] ]]; then
+        if [[ $obsolete = "0" ]]; then
+          echo "Deleting outdated local chunk(s):" && obsolete="1"
+        fi
+        echo -n "» " && echo "$local_chunk" && rm "$local_chunk"
+      fi
+    done
   fi
 
   # Empty mysql data-dir and restart mysql to re-init using downloaded dump
@@ -827,17 +865,17 @@ restore_uploads() {
   local file="uploads.zip"
 
   # Get glob pattern for zip file(s)
-  base="${file%.zip}".z*
+  local base="${file%.zip}".z*
 
   # Load lists of remote and local chunks of $file
-  local_chunks=$(ls -1 "data/"$base 2> /dev/null | sort -V | tr '\n' ' ') || true
+  local local_chunks=$(ls -1 "data/"$base 2> /dev/null | sort -V | tr '\n' ' ') || true
 
   # If $release is given
   if [[ -n "$release" ]]; then
 
     # Load list of remote chunks of $file
-    remote_chunks=$(load_chunk_list "$release" $base)
-    remote_chunks_qty=$(echo "$remote_chunks" | wc -w)
+    local remote_chunks=$(load_chunk_list "$release" "$base")
+    local remote_chunks_qty=$(echo "$remote_chunks" | wc -w)
 
     # If there a more than 1 chunk
     if (( remote_chunks_qty > 1 )); then
@@ -861,7 +899,7 @@ restore_uploads() {
     fi
 
     # Delete obsolete local chunks, if any
-    obsolete="0"
+    local obsolete="0"
     for local_chunk in $local_chunks; do
       if [[ ! " $remote_chunks " =~ [[:space:]]${local_chunk##*/}[[:space:]] ]]; then
         if [[ $obsolete = "0" ]]; then
@@ -1684,12 +1722,13 @@ mysql_entrypoint() {
       # from data/ directory on the docker host machine
       else
 
-        # Shortcut
+        # Shortcuts
         local="custom/$dump"
+        shopt -s nullglob; chunks=("$local"[0-9][0-9]); shopt -u nullglob
 
         # If that local dump file does NOT really exists in data/ directory on host machine
         # e.g does NOT exist in custom/ directory in mysql-container due to bind volume mapping
-        if [[ ! -f "$local" ]]; then
+        if [[ ! -f "$local" && ${#chunks[@]} = "0" ]]; then
 
           # If GH_TOKEN_CUSTOM variable is set - install GitHub CLI
           if [[ ! -z "$GH_TOKEN_CUSTOM" ]]; then
@@ -1715,10 +1754,21 @@ mysql_entrypoint() {
 
         # If that local dump file really exists in data/ directory on host machine
         # e.g exists  in custom/ directory in mysql-container due to bind volume mapping
-        if [ -f "$local" ]; then
+        if [[ -f "$local" || ${#chunks[@]} -gt 0 ]]; then
+
+          # If chunks detected
+          if [[ ${#chunks[@]} -gt 0 ]]; then
+
+            # Copy each chunk to the level up for it to be imported, as files from subdirectories are ignored while import
+            for chunk in "${chunks[@]}"; do
+              cp "$chunk" "$prefix-${chunk##*/}" && echo "File '/docker-entrypoint-initdb.d/$chunk' copied to the level up"
+            done
+
+            # Increment saved dumps counter
+            prefix=$((prefix + 1))
 
           # If that local dump file is not empty
-          if [ -s "$local" ]; then
+          elif [ -s "$local" ]; then
 
             # Copy that file here for it to be imported, as files from subdirectories are ignored while import
             cp "$local" "$prefix-$dump" && echo "File '/docker-entrypoint-initdb.d/$local' copied to the level up"
