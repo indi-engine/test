@@ -642,11 +642,11 @@ upload_possibly_chunked_file() {
   local pattern="$2"
 
   # Get remote chunks
-  remote_chunks=$(load_remote_chunk_list "$release" ${pattern##*/})
+  local remote_chunks=$(load_remote_chunk_list "$release" ${pattern##*/})
 
   # For each local chunk - upload on github
-  local_chunks=$(ls -1 $pattern 2> /dev/null | sort -V)
-  local_chunks_qty=$(echo "$local_chunks" | wc -w)
+  local local_chunks=$(ls -1 $pattern 2> /dev/null | sort -V)
+  local local_chunks_qty=$(echo "$local_chunks" | wc -w)
 
   # If there a more than 1 local chunk
   if (( local_chunks_qty > 1 )); then
@@ -666,7 +666,7 @@ upload_possibly_chunked_file() {
   fi
 
   # Delete obsolete remote assets, if any remaining on github
-  obsolete="0"
+  local obsolete="0"
   for remote_chunk in $remote_chunks; do
     if [[ ! " $local_chunks " =~ [[:space:]]$(dirname "$pattern")/$remote_chunk[[:space:]] ]]; then
       if [[ $obsolete = "0" ]]; then
@@ -722,24 +722,35 @@ restore_dump() {
   # Name of the backup file
   local file="dump.sql.gz"
 
-  # Get glob pattern for zip file(s)
-  local base="${file%.gz}".gz*
+  # Download possibly chunked dump.sql.gz using glob pattern dump.sql.gz*
+  download_possibly_chunked_file "$release" "$file*"
+
+  # Empty mysql data-dir and restart mysql to re-init using downloaded dump
+  import_dump
+}
+
+# Download possibly chunked file from github, based on glob pattern
+download_possibly_chunked_file() {
+
+  # Arguments
+  local release="$1"
+  local pattern="$2"
 
   # Load lists of remote and local chunks of $file
-  local local_chunks=$(ls -1 "data/"$base 2> /dev/null | sort -V | tr '\n' ' ') || true
+  local local_chunks=$(ls -1 "data/"$pattern 2> /dev/null | sort -V | tr '\n' ' ') || true
 
   # If $release is given
   if [[ -n "$release" ]]; then
 
     # Load list of remote chunks of $file
-    local remote_chunks=$(load_remote_chunk_list "$release" "$base")
+    local remote_chunks=$(load_remote_chunk_list "$release" "$pattern")
     local remote_chunks_qty=$(echo "$remote_chunks" | wc -w)
 
     # If there a more than 1 chunk
     if (( remote_chunks_qty > 1 )); then
 
       # Get current repo
-      repo=$(get_current_repo)
+      local repo=$(get_current_repo)
 
       # Download one by one
       echo "Downloading $file for selected version into data/ dir ($remote_chunks_qty chunks):"
@@ -761,15 +772,12 @@ restore_dump() {
     for local_chunk in $local_chunks; do
       if [[ ! " $remote_chunks " =~ [[:space:]]${local_chunk##*/}[[:space:]] ]]; then
         if [[ $obsolete = "0" ]]; then
-          echo "Deleting outdated local chunk(s):" && obsolete="1"
+          echo "Deleting obsolete local chunk(s):" && obsolete="1"
         fi
         echo -n "» " && echo "$local_chunk" && rm "$local_chunk"
       fi
     done
   fi
-
-  # Empty mysql data-dir and restart mysql to re-init using downloaded dump
-  import_dump
 }
 
 # Shutdown mysql, empty data-dir and wait for mysql to re-init using pre-downloaded dump
@@ -834,51 +842,8 @@ restore_uploads() {
   # Name of the backup file
   local file="uploads.zip"
 
-  # Get glob pattern for zip file(s)
-  local base="${file%.zip}".z*
-
-  # Load lists of remote and local chunks of $file
-  local local_chunks=$(ls -1 "data/"$base 2> /dev/null | sort -V | tr '\n' ' ') || true
-
-  # If $release is given
-  if [[ -n "$release" ]]; then
-
-    # Load list of remote chunks of $file
-    local remote_chunks=$(load_remote_chunk_list "$release" "$base")
-    local remote_chunks_qty=$(echo "$remote_chunks" | wc -w)
-
-    # If there a more than 1 chunk
-    if (( remote_chunks_qty > 1 )); then
-
-      # Get current repo
-      repo=$(get_current_repo)
-
-      # Download one by one
-      echo "Downloading $file for selected version into data/ dir ($remote_chunks_qty chunks):"
-      for remote_chunk in $remote_chunks; do
-        gh release download "$release" -D data -p "$remote_chunk" --clobber
-        echo "» Downloading $remote_chunk from '$repo:$release'... Done"
-      done
-
-    # Else download the single file, overwriting the existing one, if any
-    else
-      local msg="Downloading $file for selected version into data/ dir..." && echo $msg
-      gh release download "$release" -D data -p "$file" --clobber
-      clear_last_lines 1
-      echo "$msg Done"
-    fi
-
-    # Delete obsolete local chunks, if any
-    local obsolete="0"
-    for local_chunk in $local_chunks; do
-      if [[ ! " $remote_chunks " =~ [[:space:]]${local_chunk##*/}[[:space:]] ]]; then
-        if [[ $obsolete = "0" ]]; then
-          echo "Deleting outdated local chunk(s):" && obsolete="1"
-        fi
-        echo -n "» " && echo "$local_chunk" && rm "$local_chunk"
-      fi
-    done
-  fi
+  # Download possibly chunked uploads.zip using glob pattern uploads.z*
+  download_possibly_chunked_file "$release" "${file%.zip}.z*"
 
   # Extract
   unzip_file "data/$file" "custom/data/upload" "www-data:www-data"
