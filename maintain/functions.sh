@@ -604,7 +604,7 @@ backup_dump() {
 }
 
 # Load whitespace-separated list of names of assets that are chunks
-load_chunk_list() {
+load_remote_chunk_list() {
 
   # Arguments
   release="$1"
@@ -634,18 +634,18 @@ backup_uploads() {
   upload_possibly_chunked_file $release "${asset%.zip}.z*"
 }
 
-# Upload possibly chunked file to github, based
+# Upload possibly chunked file to github, based on glob pattern
 upload_possibly_chunked_file() {
 
   # Arguments
-  local release=$1
-  local base="$2"
+  local release="$1"
+  local pattern="$2"
 
-  # Get remote chunks of uploads.zip
-  remote_chunks=$(load_chunk_list "$release" ${base##*/})
+  # Get remote chunks
+  remote_chunks=$(load_remote_chunk_list "$release" ${pattern##*/})
 
   # For each local chunk - upload on github
-  local_chunks=$(ls -1 $base 2> /dev/null | sort -V)
+  local_chunks=$(ls -1 $pattern 2> /dev/null | sort -V)
   local_chunks_qty=$(echo "$local_chunks" | wc -w)
 
   # If there a more than 1 local chunk
@@ -657,18 +657,18 @@ upload_possibly_chunked_file() {
       upload_asset "$local_chunk" "$release" "» "
     done
 
+    # Replace newlines with spaces in list of local chunks
+    local_chunks="${local_chunks//$'\n'/ }"
+
   # Else upload the single file, overwriting the existing one, if any
   else
-    upload_asset "$asset" "$release"
+    upload_asset "$local_chunks" "$release"
   fi
-
-  # Replace newlines with spaces in list of local chunks
-  local_chunks="${local_chunks//$'\n'/ }"
 
   # Delete obsolete remote assets, if any remaining on github
   obsolete="0"
   for remote_chunk in $remote_chunks; do
-    if [[ ! " $local_chunks " =~ [[:space:]]$(dirname "$base")/$remote_chunk[[:space:]] ]]; then
+    if [[ ! " $local_chunks " =~ [[:space:]]$(dirname "$pattern")/$remote_chunk[[:space:]] ]]; then
       if [[ $obsolete = "0" ]]; then
         echo "Deleting obsolete remote chunk(s):" && obsolete="1"
       fi
@@ -732,7 +732,7 @@ restore_dump() {
   if [[ -n "$release" ]]; then
 
     # Load list of remote chunks of $file
-    local remote_chunks=$(load_chunk_list "$release" "$base")
+    local remote_chunks=$(load_remote_chunk_list "$release" "$base")
     local remote_chunks_qty=$(echo "$remote_chunks" | wc -w)
 
     # If there a more than 1 chunk
@@ -844,7 +844,7 @@ restore_uploads() {
   if [[ -n "$release" ]]; then
 
     # Load list of remote chunks of $file
-    local remote_chunks=$(load_chunk_list "$release" "$base")
+    local remote_chunks=$(load_remote_chunk_list "$release" "$base")
     local remote_chunks_qty=$(echo "$remote_chunks" | wc -w)
 
     # If there a more than 1 chunk
