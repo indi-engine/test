@@ -599,46 +599,8 @@ backup_dump() {
   # Prepare dump
   source maintain/dump-prepare.sh "" && asset="$dump"
 
-  # Get glob pattern for zip file(s)
-  base="$asset"*
-
-  # Get remote chunks of uploads.zip
-  remote_chunks=$(load_chunk_list "$release" ${base##*/})
-
-  # For each local chunk - upload on github
-  local_chunks=$(ls -1 $base 2> /dev/null | sort -V)
-  local_chunks_qty=$(echo "$local_chunks" | wc -w)
-
-  # If there a more than 1 local chunk
-  if (( local_chunks_qty > 1 )); then
-
-    # Upload one by one
-    echo "Uploading chunks:"
-    for local_chunk in $local_chunks; do
-      upload_asset "$local_chunk" "$release" "» "
-    done
-
-  # Else upload the single file, overwriting the existing one, if any
-  else
-    upload_asset "$asset" "$release"
-  fi
-
-  # Replace newlines with spaces in list of local chunks
-  local_chunks="${local_chunks//$'\n'/ }"
-
-  # Delete obsolete remote assets, if any remaining on github
-  obsolete="0"
-  for remote_chunk in $remote_chunks; do
-    if [[ ! " $local_chunks " =~ [[:space:]]$(dirname "$base")/$remote_chunk[[:space:]] ]]; then
-      if [[ $obsolete = "0" ]]; then
-        echo "Deleting outdated remote chunk(s):" && obsolete="1"
-      fi
-      echo -n "» " && delete_asset "$remote_chunk" "$release"
-    fi
-  done
-
-  # Print newline
-  echo ""
+  # Upload possibly chunked dump.sql.gz to github using glob pattern dump.sql.gz*
+  upload_possibly_chunked_file $release "$asset*"
 }
 
 # Load whitespace-separated list of names of assets that are chunks
@@ -668,8 +630,16 @@ backup_uploads() {
   # Prepare uploads
   source maintain/uploads-prepare.sh "" && asset="$uploads"
 
-  # Get glob pattern for zip file(s)
-  base="${asset%.zip}".z*
+  # Upload possibly chunked upload.zip to github using glob pattern uploads.z*
+  upload_possibly_chunked_file $release "${asset%.zip}.z*"
+}
+
+# Upload possibly chunked file to github, based
+upload_possibly_chunked_file() {
+
+  # Arguments
+  local release=$1
+  local base="$2"
 
   # Get remote chunks of uploads.zip
   remote_chunks=$(load_chunk_list "$release" ${base##*/})
@@ -700,7 +670,7 @@ backup_uploads() {
   for remote_chunk in $remote_chunks; do
     if [[ ! " $local_chunks " =~ [[:space:]]$(dirname "$base")/$remote_chunk[[:space:]] ]]; then
       if [[ $obsolete = "0" ]]; then
-        echo "Deleting outdated remote chunk(s):" && obsolete="1"
+        echo "Deleting obsolete remote chunk(s):" && obsolete="1"
       fi
       echo -n "» " && delete_asset "$remote_chunk" "$release"
     fi
