@@ -1833,8 +1833,25 @@ mysql_entrypoint() {
     cp "$src/mysql"     "$vmd/mysql"
     cp "$src/mysqldump" "$vmd/mysqldump"
 
-    # Append touch-command to create an empty '/var/lib/mysql/init.done'-file after init is done to use in healthcheck
-    sed -i 's~Ready for start up."~&\n\t\t\ttouch /var/lib/mysql/init.done~' /usr/local/bin/docker-entrypoint.sh
+    # Shortcut to native entrypoint
+    native="/usr/local/bin/docker-entrypoint.sh"
+
+    # If 'init.done' file creation code was not yet added to native entrypoint script
+    if ! grep -q "init.done" $native; then
+
+      # Append block of bash code that will process chunked gz-files
+      sed -Ei "/\*\.sql\.gz\).+?;;/r /dev/stdin" $native <<'EOF'
+			*.sql.gz[0-9][0-9])
+				if [[ "$f" =~ [^0-9]([0-9][0-9])$ && "${BASH_REMATCH[1]}" != "01" ]]; then continue; fi
+				base="${f%??}"
+				mysql_note "$0: running multi-part chunks starting from $f as $base"
+				cat "${base}"[0-9][0-9] | gunzip | docker_process_sql
+				;;
+EOF
+
+      # Append touch-command to create an empty '/var/lib/mysql/init.done'-file after init is done to use in healthcheck
+      sed -i 's~Ready for start up."~&\n\t\t\ttouch /var/lib/mysql/init.done~' $native
+    fi
   fi
 
   # Call the original entrypoint script
