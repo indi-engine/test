@@ -607,12 +607,13 @@ backup_dump() {
 load_remote_chunk_list() {
 
   # Arguments
-  release="$1"
-  pattern="$2"
+  local repo="$1"
+  local release="$2"
+  local pattern="$3"
 
   # Load asset names
   if [[ ! -z "$GH_TOKEN_CUSTOM" ]]; then
-    local list=$(gh release view "$release" --json assets --jq '.assets[].name | select(test("'$pattern'"))')
+    local list=$(gh release view "$release" -R "$repo" --json assets --jq '.assets[].name | select(test("'$pattern'"))')
   else
     local list=$(curl -s "https://api.github.com/repos/$repo/releases" | jq -r '.[] | "\(.tag_name)=\(.name)"') # todo: fix
   fi
@@ -641,8 +642,11 @@ upload_possibly_chunked_file() {
   local release="$1"
   local pattern="$2"
 
+  # Get current repo
+  local repo="$(get_current_repo)"
+
   # Get remote chunks
-  local remote_chunks=$(load_remote_chunk_list "$release" ${pattern##*/})
+  local remote_chunks=$(load_remote_chunk_list "$repo" "$release" ${pattern##*/})
 
   # For each local chunk - upload on github
   local local_chunks=$(ls -1 $pattern 2> /dev/null | sort -V)
@@ -723,7 +727,7 @@ restore_dump() {
   local file="dump.sql.gz"
 
   # Download possibly chunked dump.sql.gz using glob pattern dump.sql.gz*
-  download_possibly_chunked_file "$(get_current_repo)" "$release" "$file*"
+  download_possibly_chunked_file "$(get_current_repo)" "$release" "$file"
 
   # Empty mysql data-dir and restart mysql to re-init using downloaded dump
   import_dump
@@ -735,8 +739,15 @@ download_possibly_chunked_file() {
   # Arguments
   local repo="$1"
   local release="$2"
-  local pattern="$3"
+  local file="$3"
   local dir="${4:-data}"
+
+  # Prepare glob pattern to find chunks, if any
+  if [[ "$file" =~ \.zip$ ]]; then
+    local pattern="${file%.zip}.z*"
+  else
+    local pattern="$file*"
+  fi
 
   # Load lists of remote and local chunks of $file
   local local_chunks=$(ls -1 "$dir/"$pattern 2> /dev/null | sort -V | tr '\n' ' ') || true
@@ -745,7 +756,7 @@ download_possibly_chunked_file() {
   if [[ -n "$release" ]]; then
 
     # Load list of remote chunks of $file
-    local remote_chunks=$(load_remote_chunk_list "$release" "$pattern")
+    local remote_chunks=$(load_remote_chunk_list "$repo" "$release" "$pattern")
     local remote_chunks_qty=$(echo "$remote_chunks" | wc -w)
 
     # If there a more than 1 chunk
@@ -841,8 +852,8 @@ restore_uploads() {
   # Name of the backup file
   local file="uploads.zip"
 
-  # Download possibly chunked uploads.zip using glob pattern uploads.z*
-  download_possibly_chunked_file "$(get_current_repo)" "$release" "${file%.zip}.z*"
+  # Download possibly chunked uploads.zip
+  download_possibly_chunked_file "$(get_current_repo)" "$release" "$file"
 
   # Extract
   unzip_file "data/$file" "custom/data/upload" "www-data:www-data"
@@ -1089,7 +1100,7 @@ init_uploads_if_need() {
       # Download it from github into data/ dir
       if [[ ! -z "${init_repo:-}" ]]; then
         echo "Asset '$file' will be downloaded from '$init_repo:$init_release'"
-        download_possibly_chunked_file "$init_repo" "$init_release" "${file%.zip}.z*"
+        download_possibly_chunked_file "$init_repo" "$init_release" "$file"
       fi
     fi
 
@@ -1651,8 +1662,10 @@ mysql_entrypoint() {
       # from data/ directory on the docker host machine
       else
 
-        # Shortcuts
+        # Dump file path
         local="custom/$dump"
+
+        # Get local chunks array, if any
         shopt -s nullglob; chunks=("$local"[0-9][0-9]); shopt -u nullglob
 
         # If that local dump file does NOT really exists in data/ directory on host machine
@@ -1677,9 +1690,12 @@ mysql_entrypoint() {
           # Download it from github into data/ dir
           if [[ ! -z "${init_repo:-}" ]]; then
             echo "Asset '$dump' will be downloaded from '$init_repo:$init_release'"
-            download_possibly_chunked_file "$init_repo" "$init_release" "$dump*" "custom"
+            download_possibly_chunked_file "$init_repo" "$init_release" "$dump" "custom"
           fi
         fi
+
+        # Refresh local chunks array, as they might have been downloaded from github
+        shopt -s nullglob; chunks=("$local"[0-9][0-9]); shopt -u nullglob
 
         # If that local dump file really exists in data/ directory on host machine
         # e.g exists  in custom/ directory in mysql-container due to bind volume mapping
