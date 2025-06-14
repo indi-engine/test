@@ -1,16 +1,13 @@
 #!/bin/bash
 
-# Command prefix to run something on behalf on www-data user
-run='/sbin/runuser '$user' -s /bin/bash -c'
-
-# Remove debug.txt file, if exists
-$run 'if [[ -f "debug.txt" ]] ; then rm debug.txt ; fi'
-
 # If '../vendor'-dir is not yet moved back to /var/www - do move
-$run 'if [[ ! -d "vendor" && -d "../vendor" ]] ; then echo "Moving ../vendor back here..." ; mv ../vendor vendor ; echo "Moved." ; fi'
+if [[ ! -d "vendor" && -d "../vendor" ]]; then echo -n "Moving ../vendor back here... "; mv ../vendor vendor; echo "Done"; fi
 
 # Copy config.ini file from example one, if not exist
-$run 'if [[ ! -f "application/config.ini" ]] ; then cp application/config.ini.example application/config.ini ; fi'
+ini="application/config.ini"; if [[ ! -f "$ini" ]]; then cp "$ini.example" "$ini"; fi
+
+# Command prefix to run something on behalf on www-data user
+run='/sbin/runuser '$user' -s /bin/bash -c'
 
 # Start php background processes
 $run 'php indi -d realtime/closetab'
