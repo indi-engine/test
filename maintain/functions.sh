@@ -38,7 +38,7 @@ getup() {
   fi
 
   # Force current directory to be the default directory
-  if [[ -f /root/.bashrc]]; then
+  if [[ -f /root/.bashrc ]]; then
     echo "cd "$(pwd) >> /root/.bashrc
   fi
 
