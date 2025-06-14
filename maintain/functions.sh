@@ -1022,23 +1022,44 @@ gh_download() {
   local file="$3"
   local dir=${4:-data}
 
-  # Disable exit in case of error
-  set +e
+  # Shortcuts
+  local url="https://github.com/$repo/releases/download/$release/$file"
+  local out="$dir/$file"
 
-  # Download the $file using GitHub CLI or GitHub API based on whether GH_TOKEN_CUSTOM variable is set
-  if [[ -n "$GH_TOKEN_CUSTOM" ]]; then
-    local error=$(gh release download $release -D "$dir" -p "$file" -R "$repo" --clobber 2>&1)
+  # Append auth token
+  if [[ ! -z "$GH_TOKEN_CUSTOM" ]]; then
+    local hdr="Authorization: Bearer ${GH_TOKEN_CUSTOM}"
   else
-    local error=$(curl -L -o "$dir/$file" "https://github.com/$repo/releases/download/$release/$file" 2>&1)
+    local hdr=""
   fi
 
-  # Enable back exit in case of error
-  set -e
+  # Disable exit on error
+  set +e
 
-  # If download was unsuccessful for whatever reason - print reason
-  if [[ -n $error ]]; then
-    echo "Downloading error: $error" >&2
+  # Run wget with progress bar only
+  wget --progress=bar --header="$hdr" --show-progress -q -O "$out" "$url"
+
+  # If wget failed
+  if [[ $? -ne 0 ]]; then
+
+    # Get and print http status
+    echo "URL: $url"
+    echo $(wget --spider --header="$hdr" --server-response "$url" 2>&1 | grep '^  HTTP' | tail -1)
+
+    # Enable exit on error
+    set -e
+
+    # Return error
     return 1
+
+  # Else
+  else
+
+    # Enable exit on error
+    set -e
+
+    # Clear last line
+    clear_last_lines 1
   fi
 }
 
