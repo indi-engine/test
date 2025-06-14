@@ -38,7 +38,9 @@ getup() {
   fi
 
   # Force current directory to be the default directory
-  echo "cd "$(pwd) >> /root/.bashrc
+  if [[ -f /root/.bashrc]]; then
+    echo "cd "$(pwd) >> /root/.bashrc
+  fi
 
   # If .env.hard file does not yet exist - create it as a copy of .env.dist but with a pre-filled value for GH_TOKEN_CUSTOM
   if [[ ! -f ".env.hard" ]]; then
