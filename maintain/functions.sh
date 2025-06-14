@@ -723,7 +723,7 @@ restore_dump() {
   local file="dump.sql.gz"
 
   # Download possibly chunked dump.sql.gz using glob pattern dump.sql.gz*
-  download_possibly_chunked_file "$release" "$file*"
+  download_possibly_chunked_file "$(get_current_repo)" "$release" "$file*"
 
   # Empty mysql data-dir and restart mysql to re-init using downloaded dump
   import_dump
@@ -733,11 +733,13 @@ restore_dump() {
 download_possibly_chunked_file() {
 
   # Arguments
-  local release="$1"
-  local pattern="$2"
+  local repo="$1"
+  local release="$2"
+  local pattern="$3"
+  local dir="${4:-data}"
 
   # Load lists of remote and local chunks of $file
-  local local_chunks=$(ls -1 "data/"$pattern 2> /dev/null | sort -V | tr '\n' ' ') || true
+  local local_chunks=$(ls -1 "$dir/"$pattern 2> /dev/null | sort -V | tr '\n' ' ') || true
 
   # If $release is given
   if [[ -n "$release" ]]; then
@@ -749,20 +751,17 @@ download_possibly_chunked_file() {
     # If there a more than 1 chunk
     if (( remote_chunks_qty > 1 )); then
 
-      # Get current repo
-      local repo=$(get_current_repo)
-
       # Download one by one
       echo "Downloading $file for selected version into data/ dir ($remote_chunks_qty chunks):"
       for remote_chunk in $remote_chunks; do
-        gh release download "$release" -D data -p "$remote_chunk" --clobber
+        gh_download "$repo" "$release" "$remote_chunk" "$dir"
         echo "» Downloading $remote_chunk from '$repo:$release'... Done"
       done
 
     # Else download the single file, overwriting the existing one, if any
     else
       local msg="Downloading $file for selected version into data/ dir..." && echo $msg
-      gh release download "$release" -D data -p "$file" --clobber
+      gh_download "$repo" "$release" "$file" "$dir"
       clear_last_lines 1
       echo "$msg Done"
     fi
@@ -843,7 +842,7 @@ restore_uploads() {
   local file="uploads.zip"
 
   # Download possibly chunked uploads.zip using glob pattern uploads.z*
-  download_possibly_chunked_file "$release" "${file%.zip}.z*"
+  download_possibly_chunked_file "$(get_current_repo)" "$release" "${file%.zip}.z*"
 
   # Extract
   unzip_file "data/$file" "custom/data/upload" "www-data:www-data"
@@ -1011,18 +1010,13 @@ gh_download() {
   local file="$3"
   local dir=${4:-data}
 
-  # Msg
-  local msg="Downloading '$file' from '$repo:$release' via GitHub"
-
   # Disable exit in case of error
   set +e
 
   # Download the $file using GitHub CLI or GitHub API based on whether GH_TOKEN_CUSTOM variable is set
   if [[ -n "$GH_TOKEN_CUSTOM" ]]; then
-    echo "$msg CLI"
-    local error=$(gh release download $release -D "$dir" -p "$file" -R "$repo" 2>&1)
+    local error=$(gh release download $release -D "$dir" -p "$file" -R "$repo" --clobber 2>&1)
   else
-    echo "$msg API"
     local error=$(curl -L -o "$dir/$file" "https://github.com/$repo/releases/download/$release/$file" 2>&1)
   fi
 
@@ -1095,7 +1089,7 @@ init_uploads_if_need() {
       # Download it from github into data/ dir
       if [[ ! -z "${init_repo:-}" ]]; then
         echo "Asset '$file' will be downloaded from '$init_repo:$init_release'"
-        gh_download "$init_repo" "$init_release" "$file"
+        download_possibly_chunked_file "$init_repo" "$init_release" "${file%.zip}.z*"
       fi
     fi
 
@@ -1683,7 +1677,7 @@ mysql_entrypoint() {
           # Download it from github into data/ dir
           if [[ ! -z "${init_repo:-}" ]]; then
             echo "Asset '$dump' will be downloaded from '$init_repo:$init_release'"
-            gh_download "$init_repo" "$init_release" "$dump" "custom"
+            download_possibly_chunked_file "$init_repo" "$init_release" "$dump*" "custom"
           fi
         fi
 
