@@ -12,7 +12,7 @@ d="\e[0m"  # default
 getup() {
 
   # Setup the docker compose project
-  docker compose up -d mysql
+  docker compose up -d
 
   # Pick LETS_ENCRYPT_DOMAIN and EMAIL_SENDER_DOMAIN from .env file, if possible
   LETS_ENCRYPT_DOMAIN=$(grep "^LETS_ENCRYPT_DOMAIN=" .env | cut -d '=' -f 2-)
@@ -23,18 +23,17 @@ getup() {
   if [[ ! -z "$EMAIL_SENDER_DOMAIN" ]]; then
 
     # Shortcuts
-    container="${dir//./}-wrapper-1"
-    wait="Waiting for DKIM-keys to be prepared.."
+    local wait="Waiting for DKIM-keys to be prepared.."
 
     # Wait while DKIM-keys are ready
-    while ! docker exec $container sh -c "cat /etc/opendkim/trusted.hosts" | grep -q $EMAIL_SENDER_DOMAIN; do
+    while ! docker compose exec wrapper sh -c "cat /etc/opendkim/trusted.hosts" | grep -q $EMAIL_SENDER_DOMAIN; do
       [[ -n $wait ]] && echo -n "$wait" && wait="" || echo -n "."
       sleep 1
     done
     echo ""
 
     # Print mail config
-    docker exec $container bash -c "source maintain/mail-config.sh"
+    docker compose exec wrapper bash -c "source maintain/mail-config.sh"
   fi
 
   # Force current directory to be the default directory
