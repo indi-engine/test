@@ -127,6 +127,14 @@ def bash_stream(
         'closable': True
     }, mq, mysql)
 
+    # If it's a restore-command that affected database state - send ws-message to reload windows and menu
+    if (
+        re.search(r' source restore ', command)
+        and child.exitstatus == 0 and child.signalstatus is None
+        and data.get('scenario') in ['full', 'dump', 'cancel']
+    ):
+        mq = ws(to, {'type': 'restored'}, mq, mysql)
+
     # Clone rabbitmq connection
     nn.close()
 
