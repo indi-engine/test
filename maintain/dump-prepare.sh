@@ -62,7 +62,7 @@ rm -f $base*
 
 # Gzip dump with splitting into chunks
 echo -n "Gzipping $(basename "$sql")..."
-gzip -f $sql -c | split --bytes=$GH_ASSET_MAX_SIZE --numeric-suffixes=1 - $gz
+gzip -f $sql -c | split --bytes=${GH_ASSET_MAX_SIZE^^} --numeric-suffixes=1 - $gz
 echo -n " Done"
 
 # Remove original sql file

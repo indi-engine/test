@@ -709,11 +709,46 @@ upload_asset() {
   release=$2
   p=${3:-}
 
-  # Do upload
-  msg="${p}Uploading $asset into '$(get_current_repo):$release'..."
-  echo $msg
-  gh release upload "$release" "$asset" --clobber
-  clear_last_lines 2
+  # Shortcuts
+  local hdr1="Authorization: Bearer ${GH_TOKEN_CUSTOM}"
+  local hdr2="Content-Type: application/octet-stream"
+  local hdr3="Accept: application/vnd.github+json"
+  local out="var/tmp/chunks.json"
+  local repo=$(get_current_repo)
+
+  # Print where we are
+  msg="${p}Uploading $asset into '$repo:$release'..."; echo $msg
+
+  # Get release and assets info
+  gh release view "$release" --json databaseId,assets > $out
+
+  # Get releaseId and asset apiUrl usable for curl requests
+  releaseId=$(jq '.databaseId' $out); assetUrl=$(jq -r '.assets[] | select(.name == "'${asset##*/}'") | .apiUrl' $out)
+
+  # If asset already exists
+  if [[ "$assetUrl" != "" ]]; then
+
+    # Delete it
+    set +e; curl -fL -X DELETE -H "$hdr1" -H "$hdr3" "$assetUrl"; exit_code=$?; set -e
+
+    # If deletion failed - return error
+    if [[ exit_code -ne 0 ]]; then return 1; fi
+  fi
+
+  # Prepare url
+  local url="https://uploads.github.com/repos/${repo}/releases/${releaseId}/assets?name=${asset##*/}"
+
+  # Disable exit on error to allow curl to print error (if occurred) instead of silent exit
+  # Run curl with progress bar only
+  # Enable exit on error back
+  set +e
+  curl -fL -X POST -H "$hdr1" -H "$hdr2" --data-binary "@$asset" -o /dev/null -# "$url"; exit_code=$?;
+  set -e
+
+  # If curl failed - return error, else clear last 2 lines
+  if [[ exit_code -ne 0 ]]; then return 1; else clear_last_lines 2; fi
+
+  # Print done
   echo "$msg Done"
 }
 
