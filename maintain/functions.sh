@@ -829,6 +829,30 @@ download_possibly_chunked_file() {
 # Shutdown mysql, empty data-dir and wait for mysql to re-init using pre-downloaded dump
 import_dump() {
 
+  # Get maxwell status
+  if curl http://apache/realtime/status/ 2>&1 | grep -q maxwell; then
+    maxwell="enabled"
+  else
+    maxwell="disabled"
+  fi
+
+  # Get closetab status
+  if curl http://apache/realtime/status/ 2>&1 | grep -q closetab; then
+    closetab="enabled"
+  else
+    closetab="disabled"
+  fi
+
+  # If maxwell is enabled - disable it
+  if [[ "$maxwell" = "enabled" ]]; then
+    curl http://apache/realtime/maxwell/disable/ > /dev/null 2>&1
+  fi
+
+  # If closetab is enabled - toggle it to disable
+  if [[ "$closetab" = "enabled" ]]; then
+    curl http://apache/realtime/closetab/ > /dev/null 2>&1
+  fi
+
   # Shut down mysql
   export MYSQL_PWD=$MYSQL_PASSWORD
   local msg="Shutting down MySQL server..." && echo "$msg"
@@ -861,15 +885,37 @@ import_dump() {
     local msg="Starting MySQL server with import from data/ dir..." && echo "$msg"
     local elapsed=0
     local done="/var/lib/mysql/init.done"
+    local initTimeout=180 # todo: pick from docker-compose.yml:services.mysql.healthcheck.start_period
+    local waitTimeout=2
     while :; do
       clear_last_lines 1
       echo "$msg ($elapsed s)"
       sleep 1
       elapsed=$((elapsed + 1))
-      if [ -f "$done" ] || [ $elapsed -ge $timeout ]; then break; fi
+
+      # If init maxium time reached - break
+      if [ $elapsed -ge $initTimeout ]; then
+        echo "MySQL init timeout reached, something went wrong :("
+        exit 1
+      fi
+
+      # If mysql re-init is done: if we need to wait a bit more - do wait, else break
+      if [ -f "$done" ]; then
+        if [[ "$waitTimeout" != "0" ]]; then waitTimeout=$((waitTimeout - 1)); else break; fi
+      fi
     done
     clear_last_lines 1
     echo "$msg Done"
+
+    # If closetab was enabled - toggle it to enable back
+    if [[ "$closetab" = "enabled" ]]; then
+      curl http://apache/realtime/closetab/ > /dev/null 2>&1
+    fi
+
+    # If maxwell was enabled - enabled it back
+    if [[ "$maxwell" = "enabled" ]]; then
+      curl http://apache/realtime/maxwell/enable/ > /dev/null 2>&1
+    fi
 
   # Else if shutdown is stuck somewhere - print error message and exit
   else
