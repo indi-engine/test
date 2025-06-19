@@ -26,3 +26,6 @@ custom/**/*.tgz
 
 # Temporary files
 var/tmp/*
+
+# Any stderr files
+*.stderr
