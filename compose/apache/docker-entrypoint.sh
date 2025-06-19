@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # If '../vendor'-dir is not yet moved back to /var/www - do move
-if [[ ! -d "vendor" && -d "../vendor" ]]; then echo -n "Moving ../vendor back here... "; mv ../vendor vendor; echo "Done"; fi
+if [[ ! -d "vendor" && -d "../vendor" ]]; then echo "Moving ../vendor back here... "; mv ../vendor vendor; echo "Done"; fi
 
 # Copy config.ini file from example one, if not exist
 ini="application/config.ini"; if [[ ! -f "$ini" ]]; then cp "$ini.example" "$ini"; fi
@@ -126,6 +126,10 @@ chown "www-data:www-data" "$DOC/application/config.ini" "/var/log/custom" "/var/
 
 # Add executable right for $DOC
 chmod +x $DOC
+
+# Add executable right for $DOC/data and $DOC/data/upload dirs for du-command to be executable on behalf www-data user
+if [ -d "$DOC/data" ]; then chmod +x "$DOC/data"; fi
+if [ -d "$DOC/data/upload" ]; then chmod +x "$DOC/data/upload"; fi
 
 # Run original entrypoint script provided by base image
 echo "Apache started" && source /usr/local/bin/docker-php-entrypoint "apache2-foreground"

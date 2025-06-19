@@ -235,7 +235,7 @@ setup_auxiliary_variables() {
 get_current_repo() {
 
   # Get repo name from git config file
-  repo=$(sed -nE 's~\s*url\s*=\s*https://([a-zA-Z0-9_\-]+@)?github\.com/([a-zA-Z0-9_\-]+/[a-zA-Z0-9_.\-]+)(\.git)?$~\2~p' ${1:-.git/config})
+  repo=$(sed -nE 's~\s*url\s*=\s*https?://([a-zA-Z0-9_\-]+@)?github\.com/([a-zA-Z0-9_\-]+/[a-zA-Z0-9_.\-]+)(\.git)?$~\2~p' ${1:-.git/config})
 
   # Trim trailing '.git' from repo name as this is unsupported but GitHub CLI
   echo ${repo%.git}
@@ -616,7 +616,7 @@ load_remote_chunk_list() {
   if [[ ! -z "$GH_TOKEN_CUSTOM" ]]; then
     local list=$(gh release view "$release" -R "$repo" --json assets --jq '.assets[].name | select(test("'$pattern'"))')
   else
-    local list=$(curl -s "https://api.github.com/repos/$repo/releases" | jq -r '.[] | "\(.tag_name)=\(.name)"') # todo: fix
+    local list=$(curl -s "https://api.github.com/repos/$repo/releases/tags/$release" | jq -r '.assets[].name | select(test("'$pattern'"))')
   fi
 
   # Replace newlines with spaces
@@ -809,7 +809,7 @@ download_possibly_chunked_file() {
     else
       local msg="Downloading $file for selected version into data/ dir..." && echo $msg
       gh_download "$repo" "$release" "$file" "$dir"
-      clear_last_lines 1
+      if [[ $- == *i* ]]; then clear_last_lines 1; fi
       echo "$msg Done"
     fi
 
@@ -1139,8 +1139,8 @@ gh_download() {
     # Enable exit on error
     set -e
 
-    # Clear last line
-    clear_last_lines 1
+    # If we're within an interactive shell - clear last line
+    if [[ $- == *i* ]]; then clear_last_lines 1; fi
   fi
 }
 
@@ -1212,6 +1212,9 @@ init_uploads_if_need() {
 
       # Extract asset with recreating the destination dir and make that dir writable by Indi Engine
       unzip_file "data/$file" "$dest" "www-data:www-data"
+
+      # Make executable to allow du-command to be runnable from within apache-container on behalf of www-data user
+      chmod +x "$dest/../" "$dest"
     fi
 
   # Else just make uploads dir writable for Indi Engine which might be at least needed
@@ -1225,6 +1228,9 @@ init_uploads_if_need() {
     echo -n "Making $dest dir writable for Indi Engine..."
     chown -R "www-data:www-data" "$dest"
     echo -e " Done\n"
+
+    # Make executable to allow du-command to be runnable from within apache-container on behalf of www-data user
+    chmod +x "$dest/../" "$dest"
   fi
 }
 
@@ -1446,7 +1452,7 @@ release_choices() {
 
   # Load releases list
   echo -n "Loading list of backup versions available on github..."
-  local lerr="var/log/release_list.err"
+  local lerr="var/log/release_list.stderr"
   local list=$(script -q -c "gh release list 2> $lerr" /dev/null)
   if [[ -s "$lerr" ]]; then echo ""; cat "$lerr" >&2; exit 1; fi
   rm -f "$lerr";
@@ -1716,13 +1722,16 @@ backup_before_restore() {
 mysql_entrypoint() {
 
   # Path to a file to be created once init is done
-  done=/var/lib/mysql/init.done
+  done=/var/lib/mysql/init.done;
 
   # If init is not done
   if [[ ! -f "$done" ]]; then
 
     # Install certain tools
     apt-get update && apt-get install -y wget curl jq
+
+    # Install GitHub CLI
+    ghcli_install
 
     # Print which dump is going to be imported
     echo "MYSQL_DUMP is '$MYSQL_DUMP'";
@@ -1777,7 +1786,6 @@ mysql_entrypoint() {
 
           # If GH_TOKEN_CUSTOM variable is set - install GitHub CLI
           if [[ ! -z "$GH_TOKEN_CUSTOM" ]]; then
-            ghcli_install
             export GH_TOKEN="$GH_TOKEN_CUSTOM"
           fi
 
@@ -1854,7 +1862,7 @@ mysql_entrypoint() {
     fi
 
     # Feed system token to GitHub CLI
-    GH_TOKEN="$GH_TOKEN_SYSTEM"
+    export GH_TOKEN="$GH_TOKEN_SYSTEM"
 
     # Foreach file to be imported in addition to file(s) in MYSQL_DUMP
     for filename in "${import[@]}"; do
@@ -1864,12 +1872,15 @@ mysql_entrypoint() {
 
       # If file does not exist - download it
       if [ ! -f "$local" ]; then
-        gh_download "indi-engine/system" "default" "${filename}" "custom"
+        gh release download -R "indi-engine/system" "default" -p "${filename}" -D custom
       fi
 
       # Copy that file here for it to be imported, as files from subdirectories are ignored while import
       cp "$local" "$filename" && echo "File '/docker-entrypoint-initdb.d/$local' copied to the level up"
     done
+
+    # Feed custom token to GitHub CLI, back
+    export GH_TOKEN="$GH_TOKEN_CUSTOM"
 
     # Spoof mysql user name inside maxwell.sql, if need
     [[ $MYSQL_USER != "custom" ]] && sed -i "s~custom~$MYSQL_USER~" maxwell.sql
